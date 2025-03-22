@@ -177,4 +177,37 @@ export class AuthService {
       createdAt: user.createdAt,
     };
   }
+
+  async refreshToken(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ["wallet"],
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    // Generate a new JWT with the latest user data (including role)
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        wallet: {
+          id: user.wallet?.id || "default-wallet",
+          balance: user.wallet?.balance || 0,
+        },
+      },
+      token: this.jwtService.sign(payload),
+    };
+  }
 }

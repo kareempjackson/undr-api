@@ -150,6 +150,35 @@ let AuthService = class AuthService {
             createdAt: user.createdAt,
         };
     }
+    async refreshToken(userId) {
+        var _a, _b;
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ["wallet"],
+        });
+        if (!user) {
+            throw new common_1.NotFoundException("User not found");
+        }
+        const payload = {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+        };
+        return {
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                status: user.status,
+                wallet: {
+                    id: ((_a = user.wallet) === null || _a === void 0 ? void 0 : _a.id) || "default-wallet",
+                    balance: ((_b = user.wallet) === null || _b === void 0 ? void 0 : _b.balance) || 0,
+                },
+            },
+            token: this.jwtService.sign(payload),
+        };
+    }
 };
 AuthService = __decorate([
     (0, common_1.Injectable)(),

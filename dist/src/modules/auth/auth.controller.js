@@ -18,40 +18,28 @@ const swagger_1 = require("@nestjs/swagger");
 const auth_service_1 = require("./auth.service");
 const dto_1 = require("./dto");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
+const public_decorator_1 = require("./decorators/public.decorator");
 let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
     async login(loginDto) {
-        await this.authService.sendMagicLink(loginDto.email);
-        return { message: "Magic link sent to your email" };
+        return this.authService.login(loginDto);
     }
-    async verifyMagicLink(verifyDto) {
-        return this.authService.verifyMagicLink(verifyDto.token);
+    async verifyMagicLink(verifyMagicLinkDto) {
+        return this.authService.verifyMagicLink(verifyMagicLinkDto.token);
     }
     async getProfile(req) {
-        var _a;
-        console.log("Auth/me endpoint called with user ID:", req.user.id);
-        try {
-            const userProfile = await this.authService.getUserProfile(req.user.id);
-            console.log("User profile retrieved:", {
-                id: userProfile.id,
-                email: userProfile.email,
-                wallet: userProfile.wallet,
-                hasWalletProperty: !!userProfile.wallet,
-                walletBalance: (_a = userProfile.wallet) === null || _a === void 0 ? void 0 : _a.balance,
-            });
-            return userProfile;
-        }
-        catch (error) {
-            console.error("Error retrieving user profile:", error.message);
-            throw error;
-        }
+        return this.authService.getProfile(req.user.id);
+    }
+    async refreshToken(req) {
+        return this.authService.refreshToken(req.user.id);
     }
 };
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Post)("login"),
-    (0, swagger_1.ApiOperation)({ summary: "Request a magic link login" }),
+    (0, swagger_1.ApiOperation)({ summary: "Login or register with email" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Magic link sent" }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -59,27 +47,39 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Post)("verify"),
-    (0, swagger_1.ApiOperation)({ summary: "Verify a magic link token" }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: "Token verified successfully" }),
+    (0, swagger_1.ApiOperation)({ summary: "Verify magic link token" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "User logged in successfully" }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [dto_1.VerifyMagicLinkDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyMagicLink", null);
 __decorate([
-    (0, common_1.Get)("me"),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Get)("profile"),
+    (0, swagger_1.ApiOperation)({ summary: "Get user profile" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "User profile retrieved" }),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: "Get current user information" }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: "User information retrieved" }),
     __param(0, (0, common_1.Request)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)("refresh-token"),
+    (0, swagger_1.ApiOperation)({ summary: "Refresh JWT token" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "Token refreshed" }),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "refreshToken", null);
 AuthController = __decorate([
-    (0, swagger_1.ApiTags)("Auth"),
+    (0, swagger_1.ApiTags)("Authentication"),
     (0, common_1.Controller)("auth"),
     __metadata("design:paramtypes", [auth_service_1.AuthService])
 ], AuthController);

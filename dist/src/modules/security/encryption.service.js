@@ -29,8 +29,12 @@ let EncryptionService = EncryptionService_1 = class EncryptionService {
             this.logger.error(`Invalid encryption key length: ${this.encryptionKey.length} bytes. Expected 32 bytes for AES-256.`);
             throw new Error("Invalid encryption key length");
         }
+        this.logger.log("Encryption service initialized successfully with valid key");
     }
     encrypt(text) {
+        if (text === null || text === undefined) {
+            return null;
+        }
         try {
             const iv = crypto.randomBytes(16);
             const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
@@ -44,13 +48,34 @@ let EncryptionService = EncryptionService_1 = class EncryptionService {
             });
         }
         catch (error) {
-            this.logger.error(`Encryption error: ${error.message}`);
-            throw new Error("Encryption failed");
+            this.logger.error(`Encryption error: ${error.message}`, error.stack);
+            throw new Error(`Encryption failed: ${error.message}`);
         }
     }
     decrypt(encryptedJson) {
+        if (encryptedJson === null || encryptedJson === undefined) {
+            return null;
+        }
         try {
-            const { iv, encrypted, authTag } = JSON.parse(encryptedJson);
+            let parsed;
+            try {
+                parsed = JSON.parse(encryptedJson);
+            }
+            catch (jsonError) {
+                this.logger.error(`Invalid JSON format: ${jsonError.message}`, {
+                    encryptedValue: encryptedJson.substring(0, 30) + "...",
+                });
+                throw new Error(`Invalid encrypted format: ${jsonError.message}`);
+            }
+            const { iv, encrypted, authTag } = parsed;
+            if (!iv || !encrypted || !authTag) {
+                this.logger.error("Missing encryption components", {
+                    hasIv: !!iv,
+                    hasEncrypted: !!encrypted,
+                    hasAuthTag: !!authTag,
+                });
+                throw new Error("Invalid encrypted data structure");
+            }
             const decipher = crypto.createDecipheriv(this.algorithm, this.encryptionKey, Buffer.from(iv, "base64"));
             decipher.setAuthTag(Buffer.from(authTag, "base64"));
             let decrypted = decipher.update(encrypted, "base64", "utf8");
@@ -58,8 +83,13 @@ let EncryptionService = EncryptionService_1 = class EncryptionService {
             return decrypted;
         }
         catch (error) {
-            this.logger.error(`Decryption error: ${error.message}`);
-            throw new Error("Decryption failed");
+            this.logger.error(`Decryption error: ${error.message}`, {
+                error: error.stack,
+                encryptedValue: typeof encryptedJson === "string"
+                    ? encryptedJson.substring(0, 30) + "..."
+                    : typeof encryptedJson,
+            });
+            throw new Error(`Decryption failed: ${error.message}`);
         }
     }
     static generateEncryptionKey() {

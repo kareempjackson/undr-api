@@ -1,12 +1,12 @@
 import { AuthService } from "./auth.service";
 import { LoginDto, VerifyMagicLinkDto } from "./dto";
 export declare class AuthController {
-    private authService;
+    private readonly authService;
     constructor(authService: AuthService);
     login(loginDto: LoginDto): Promise<{
         message: string;
     }>;
-    verifyMagicLink(verifyDto: VerifyMagicLinkDto): Promise<{
+    verifyMagicLink(verifyMagicLinkDto: VerifyMagicLinkDto): Promise<{
         user: {
             id: string;
             email: string;
@@ -30,9 +30,19 @@ export declare class AuthController {
             id: string;
             balance: number;
         };
-        profileImage: string;
-        bio: string;
-        location: string;
-        createdAt: Date;
+    }>;
+    refreshToken(req: any): Promise<{
+        user: {
+            id: string;
+            email: string;
+            name: string;
+            role: import("../../entities").UserRole;
+            status: import("../../entities").UserStatus;
+            wallet: {
+                id: string;
+                balance: number;
+            };
+        };
+        token: string;
     }>;
 }

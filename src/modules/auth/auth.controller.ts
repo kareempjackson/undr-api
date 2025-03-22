@@ -15,48 +15,44 @@ import {
 import { AuthService } from "./auth.service";
 import { LoginDto, VerifyMagicLinkDto } from "./dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
+import { Public } from "./decorators/public.decorator";
 
-@ApiTags("Auth")
+@ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post("login")
-  @ApiOperation({ summary: "Request a magic link login" })
+  @ApiOperation({ summary: "Login or register with email" })
   @ApiResponse({ status: 200, description: "Magic link sent" })
   async login(@Body() loginDto: LoginDto) {
-    await this.authService.sendMagicLink(loginDto.email);
-    return { message: "Magic link sent to your email" };
+    return this.authService.login(loginDto);
   }
 
+  @Public()
   @Post("verify")
-  @ApiOperation({ summary: "Verify a magic link token" })
-  @ApiResponse({ status: 200, description: "Token verified successfully" })
-  async verifyMagicLink(@Body() verifyDto: VerifyMagicLinkDto) {
-    return this.authService.verifyMagicLink(verifyDto.token);
+  @ApiOperation({ summary: "Verify magic link token" })
+  @ApiResponse({ status: 200, description: "User logged in successfully" })
+  async verifyMagicLink(@Body() verifyMagicLinkDto: VerifyMagicLinkDto) {
+    return this.authService.verifyMagicLink(verifyMagicLinkDto.token);
   }
 
-  @Get("me")
   @UseGuards(JwtAuthGuard)
+  @Get("profile")
+  @ApiOperation({ summary: "Get user profile" })
+  @ApiResponse({ status: 200, description: "User profile retrieved" })
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Get current user information" })
-  @ApiResponse({ status: 200, description: "User information retrieved" })
   async getProfile(@Request() req) {
-    console.log("Auth/me endpoint called with user ID:", req.user.id);
+    return this.authService.getProfile(req.user.id);
+  }
 
-    try {
-      const userProfile = await this.authService.getUserProfile(req.user.id);
-      console.log("User profile retrieved:", {
-        id: userProfile.id,
-        email: userProfile.email,
-        wallet: userProfile.wallet,
-        hasWalletProperty: !!userProfile.wallet,
-        walletBalance: userProfile.wallet?.balance,
-      });
-      return userProfile;
-    } catch (error) {
-      console.error("Error retrieving user profile:", error.message);
-      throw error;
-    }
+  @UseGuards(JwtAuthGuard)
+  @Post("refresh-token")
+  @ApiOperation({ summary: "Refresh JWT token" })
+  @ApiResponse({ status: 200, description: "Token refreshed" })
+  @ApiBearerAuth()
+  async refreshToken(@Request() req) {
+    return this.authService.refreshToken(req.user.id);
   }
 }

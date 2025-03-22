@@ -11,6 +11,10 @@ export declare class AdminService {
         success: boolean;
         message: string;
     }>;
+    updateUserRole(userId: string, role: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
     private getDateRange;
     getAnalytics(timeframe: string): Promise<{
         summary: {

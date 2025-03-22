@@ -10,6 +10,12 @@ export declare class AdminController {
         success: boolean;
         message: string;
     }>;
+    updateUserRole(userId: string, data: {
+        role: string;
+    }): Promise<{
+        success: boolean;
+        message: string;
+    }>;
     getAnalytics(timeframe: string): Promise<{
         summary: {
             totalRevenue: number;

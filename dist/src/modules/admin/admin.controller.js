@@ -32,6 +32,9 @@ let AdminController = class AdminController {
     async updateUserStatus(userId, data) {
         return this.adminService.updateUserStatus(userId, data.status);
     }
+    async updateUserRole(userId, data) {
+        return this.adminService.updateUserRole(userId, data.role);
+    }
     async getAnalytics(timeframe) {
         return this.adminService.getAnalytics(timeframe);
     }
@@ -77,6 +80,16 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateUserStatus", null);
+__decorate([
+    (0, common_1.Patch)("users/:id/role"),
+    (0, swagger_1.ApiOperation)({ summary: "Update user role" }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: "User role updated" }),
+    __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateUserRole", null);
 __decorate([
     (0, common_1.Get)("analytics"),
     (0, swagger_1.ApiOperation)({ summary: "Get all analytics data" }),

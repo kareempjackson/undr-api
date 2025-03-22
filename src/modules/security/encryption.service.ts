@@ -27,6 +27,10 @@ export class EncryptionService {
       );
       throw new Error("Invalid encryption key length");
     }
+
+    this.logger.log(
+      "Encryption service initialized successfully with valid key"
+    );
   }
 
   /**
@@ -36,6 +40,10 @@ export class EncryptionService {
    * @returns A JSON string containing the encrypted data, iv and auth tag
    */
   encrypt(text: string): string {
+    if (text === null || text === undefined) {
+      return null;
+    }
+
     try {
       // Generate a random initialization vector
       const iv = crypto.randomBytes(16);
@@ -61,8 +69,8 @@ export class EncryptionService {
         authTag,
       });
     } catch (error) {
-      this.logger.error(`Encryption error: ${error.message}`);
-      throw new Error("Encryption failed");
+      this.logger.error(`Encryption error: ${error.message}`, error.stack);
+      throw new Error(`Encryption failed: ${error.message}`);
     }
   }
 
@@ -73,9 +81,32 @@ export class EncryptionService {
    * @returns The decrypted text
    */
   decrypt(encryptedJson: string): string {
+    if (encryptedJson === null || encryptedJson === undefined) {
+      return null;
+    }
+
     try {
       // Parse the encrypted data
-      const { iv, encrypted, authTag } = JSON.parse(encryptedJson);
+      let parsed;
+      try {
+        parsed = JSON.parse(encryptedJson);
+      } catch (jsonError) {
+        this.logger.error(`Invalid JSON format: ${jsonError.message}`, {
+          encryptedValue: encryptedJson.substring(0, 30) + "...",
+        });
+        throw new Error(`Invalid encrypted format: ${jsonError.message}`);
+      }
+
+      const { iv, encrypted, authTag } = parsed;
+
+      if (!iv || !encrypted || !authTag) {
+        this.logger.error("Missing encryption components", {
+          hasIv: !!iv,
+          hasEncrypted: !!encrypted,
+          hasAuthTag: !!authTag,
+        });
+        throw new Error("Invalid encrypted data structure");
+      }
 
       // Create the decipher
       const decipher = crypto.createDecipheriv(
@@ -93,8 +124,14 @@ export class EncryptionService {
 
       return decrypted;
     } catch (error) {
-      this.logger.error(`Decryption error: ${error.message}`);
-      throw new Error("Decryption failed");
+      this.logger.error(`Decryption error: ${error.message}`, {
+        error: error.stack,
+        encryptedValue:
+          typeof encryptedJson === "string"
+            ? encryptedJson.substring(0, 30) + "..."
+            : typeof encryptedJson,
+      });
+      throw new Error(`Decryption failed: ${error.message}`);
     }
   }
 

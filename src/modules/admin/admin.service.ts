@@ -63,6 +63,25 @@ export class AdminService {
     return { success: true, message: `User status updated to ${status}` };
   }
 
+  async updateUserRole(userId: string, role: string) {
+    // Validate role
+    if (!Object.values(UserRole).includes(role as UserRole)) {
+      throw new BadRequestException("Invalid role");
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    await this.userRepository.update(userId, { role: role as UserRole });
+
+    return { success: true, message: `User role updated to ${role}` };
+  }
+
   // Helper function to get date range based on timeframe
   private getDateRange(timeframe: string) {
     const now = new Date();

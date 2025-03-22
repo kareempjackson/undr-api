@@ -55,6 +55,19 @@ let AdminService = class AdminService {
         await this.userRepository.update(userId, { status: status });
         return { success: true, message: `User status updated to ${status}` };
     }
+    async updateUserRole(userId, role) {
+        if (!Object.values(user_entity_1.UserRole).includes(role)) {
+            throw new common_1.BadRequestException("Invalid role");
+        }
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+        });
+        if (!user) {
+            throw new common_1.NotFoundException("User not found");
+        }
+        await this.userRepository.update(userId, { role: role });
+        return { success: true, message: `User role updated to ${role}` };
+    }
     getDateRange(timeframe) {
         const now = new Date();
         switch (timeframe) {

@@ -51,6 +51,16 @@ export class AdminController {
     return this.adminService.updateUserStatus(userId, data.status);
   }
 
+  @Patch("users/:id/role")
+  @ApiOperation({ summary: "Update user role" })
+  @ApiResponse({ status: 200, description: "User role updated" })
+  async updateUserRole(
+    @Param("id") userId: string,
+    @Body() data: { role: string }
+  ) {
+    return this.adminService.updateUserRole(userId, data.role);
+  }
+
   // Analytics endpoints
   @Get("analytics")
   @ApiOperation({ summary: "Get all analytics data" })

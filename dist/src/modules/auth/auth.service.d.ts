@@ -56,4 +56,18 @@ export declare class AuthService {
         location: string;
         createdAt: Date;
     }>;
+    refreshToken(userId: string): Promise<{
+        user: {
+            id: string;
+            email: string;
+            name: string;
+            role: import("../../entities/user.entity").UserRole;
+            status: UserStatus;
+            wallet: {
+                id: string;
+                balance: number;
+            };
+        };
+        token: string;
+    }>;
 }

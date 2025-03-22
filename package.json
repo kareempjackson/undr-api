@@ -23,7 +23,9 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "generate:key": "ts-node -r tsconfig-paths/register ./scripts/generate-encryption-key.ts"
+    "generate:key": "ts-node -r tsconfig-paths/register ./scripts/generate-encryption-key.ts",
+    "check:encrypted": "ts-node -r tsconfig-paths/register ./scripts/check-encrypted-data.ts",
+    "fix:encrypted": "ts-node -r tsconfig-paths/register ./scripts/fix-encrypted-data.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.12",
