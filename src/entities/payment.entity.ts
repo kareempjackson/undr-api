@@ -1,0 +1,127 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from "typeorm";
+import { User } from "./user.entity";
+
+export enum PaymentMethod {
+  WALLET = "WALLET",
+  CREDIT_CARD = "CREDIT_CARD",
+  CRYPTO_BTC = "CRYPTO_BTC",
+  CRYPTO_ETH = "CRYPTO_ETH",
+  CRYPTO_USDT = "CRYPTO_USDT",
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+  DISPUTED = "DISPUTED",
+  HELD = "HELD",
+  ESCROW = "ESCROW",
+}
+
+export enum ThreeDsStatus {
+  NOT_REQUIRED = "NOT_REQUIRED",
+  REQUIRED = "REQUIRED",
+  AUTHENTICATED = "AUTHENTICATED",
+  FAILED = "FAILED",
+  REJECTED = "REJECTED",
+}
+
+@Entity("payments")
+export class Payment {
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @Column({ type: "decimal", precision: 10, scale: 2 })
+  amount: number;
+
+  @Column({
+    type: "enum",
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  status: PaymentStatus;
+
+  @Column({
+    type: "enum",
+    enum: PaymentMethod,
+  })
+  method: PaymentMethod;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ nullable: true })
+  externalId: string;
+
+  // Fraud prevention and 3DS fields
+  @Column({
+    type: "enum",
+    enum: ThreeDsStatus,
+    default: ThreeDsStatus.NOT_REQUIRED,
+    nullable: true,
+  })
+  threeDsStatus: ThreeDsStatus;
+
+  @Column({ nullable: true })
+  threeDsUrl: string;
+
+  @Column({ type: "jsonb", nullable: true })
+  threeDsResult: object;
+
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 0 })
+  riskScore: number;
+
+  @Column({ default: false })
+  hasDispute: boolean;
+
+  @Column({ default: false })
+  isHighRisk: boolean;
+
+  @Column({ nullable: true })
+  ipAddress: string;
+
+  @Column({ type: "jsonb", nullable: true })
+  deviceInfo: object;
+
+  @Column({ nullable: true })
+  browserInfo: string;
+
+  @Column({ default: false })
+  isInternational: boolean;
+
+  @Column({ type: "jsonb", nullable: true })
+  invoiceDetails: object;
+
+  @Column({ type: "jsonb", nullable: true })
+  receiptData: object;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @Column()
+  fromUserId: string;
+
+  @ManyToOne(() => User, (user) => user.paymentsSent)
+  @JoinColumn({ name: "fromUserId" })
+  fromUser: User;
+
+  @Column()
+  toUserId: string;
+
+  @ManyToOne(() => User, (user) => user.paymentsReceived)
+  @JoinColumn({ name: "toUserId" })
+  toUser: User;
+}
