@@ -1,4 +1,4 @@
-import { CreatorsService } from './creators.service';
+import { CreatorsService } from "./creators.service";
 export declare class CreatorsController {
     private creatorsService;
     constructor(creatorsService: CreatorsService);
@@ -12,5 +12,20 @@ export declare class CreatorsController {
         earningsByMonth: {};
         totalEarnings: number;
         transactionCount: number;
+    }>;
+    getPaymentLink(req: any): Promise<{
+        alias: string;
+        paymentUrl: string;
+        apiEndpoint: string;
+    }>;
+    getPaymentLinkByAlias(alias: string): Promise<{
+        alias: string;
+        paymentUrl: string;
+        apiEndpoint: string;
+    }>;
+    testGetPaymentLinkByAlias(alias: string): Promise<{
+        alias: string;
+        paymentUrl: string;
+        apiEndpoint: string;
     }>;
 }

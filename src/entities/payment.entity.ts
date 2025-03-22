@@ -131,15 +131,30 @@ export class Payment {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column()
+  @Column({ nullable: false })
   fromUserId: string;
+
+  @Column({ nullable: false })
+  toUserId: string;
+
+  @Column({
+    nullable: false,
+    transformer: encryptedColumn(),
+  })
+  fromAlias: string;
+
+  @Column({
+    nullable: false,
+    transformer: encryptedColumn(),
+  })
+  toAlias: string;
+
+  @Column({ type: "jsonb", nullable: true })
+  metadata: object;
 
   @ManyToOne(() => User, (user) => user.paymentsSent)
   @JoinColumn({ name: "fromUserId" })
   fromUser: User;
-
-  @Column()
-  toUserId: string;
 
   @ManyToOne(() => User, (user) => user.paymentsReceived)
   @JoinColumn({ name: "toUserId" })

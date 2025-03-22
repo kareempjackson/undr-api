@@ -13,6 +13,7 @@ const fans_controller_1 = require("./fans.controller");
 const fans_service_1 = require("./fans.service");
 const payments_module_1 = require("../payments/payments.module");
 const entities_1 = require("../../entities");
+const common_module_1 = require("../common/common.module");
 let FansModule = class FansModule {
 };
 FansModule = __decorate([
@@ -20,6 +21,7 @@ FansModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([entities_1.User, entities_1.Wallet, entities_1.Payment, entities_1.Deposit]),
             payments_module_1.PaymentsModule,
+            common_module_1.CommonModule,
         ],
         controllers: [fans_controller_1.FansController],
         providers: [fans_service_1.FansService],

@@ -61,6 +61,14 @@ __decorate([
 ], User.prototype, "name", void 0);
 __decorate([
     (0, typeorm_1.Column)({
+        unique: true,
+        nullable: true,
+    }),
+    (0, typeorm_1.Index)(),
+    __metadata("design:type", String)
+], User.prototype, "alias", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
         type: "enum",
         enum: UserRole,
         default: UserRole.FAN,

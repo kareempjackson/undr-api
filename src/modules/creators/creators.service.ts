@@ -4,6 +4,8 @@ import { Repository } from "typeorm";
 import { User, UserRole } from "../../entities/user.entity";
 import { Payment, PaymentStatus } from "../../entities/payment.entity";
 import { Wallet } from "../../entities/wallet.entity";
+import { ConfigService } from "@nestjs/config";
+import { AliasService } from "../common/services/alias.service";
 
 @Injectable()
 export class CreatorsService {
@@ -11,7 +13,9 @@ export class CreatorsService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Payment)
-    private paymentRepository: Repository<Payment>
+    private paymentRepository: Repository<Payment>,
+    private configService: ConfigService,
+    private aliasService: AliasService
   ) {}
 
   async getDashboard(creatorId: string) {
@@ -98,6 +102,57 @@ export class CreatorsService {
         0
       ),
       transactionCount: payments.length,
+    };
+  }
+
+  /**
+   * Get a creator's payment link using their ID
+   */
+  async getPaymentLink(creatorId: string) {
+    const creator = await this.userRepository.findOne({
+      where: { id: creatorId },
+    });
+
+    if (!creator || creator.role !== UserRole.CREATOR) {
+      throw new NotFoundException("Creator not found");
+    }
+
+    // Generate alias if needed
+    const alias = await this.aliasService.generateUniqueAlias(creatorId);
+
+    // Get base URL from config
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+
+    // Return payment link info
+    return {
+      alias,
+      paymentUrl: `${frontendUrl}/pay/${alias}`,
+      apiEndpoint: `/api/fans/pay/${alias}`,
+    };
+  }
+
+  /**
+   * Get a creator's payment link using their alias
+   */
+  async getPaymentLinkByAlias(alias: string) {
+    // Find creator by alias
+    const creator = await this.aliasService.findUserByAlias(alias);
+
+    // Verify user is a creator
+    if (creator.role !== UserRole.CREATOR) {
+      throw new NotFoundException("Creator not found");
+    }
+
+    // Get base URL from config
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+
+    // Return payment link info (excluding user ID)
+    return {
+      alias,
+      paymentUrl: `${frontendUrl}/pay/${alias}`,
+      apiEndpoint: `/api/fans/pay/${alias}`,
     };
   }
 }

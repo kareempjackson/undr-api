@@ -44,7 +44,10 @@ export declare class Payment {
     createdAt: Date;
     updatedAt: Date;
     fromUserId: string;
-    fromUser: User;
     toUserId: string;
+    fromAlias: string;
+    toAlias: string;
+    metadata: object;
+    fromUser: User;
     toUser: User;
 }

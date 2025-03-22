@@ -42,11 +42,14 @@ export class AuthService {
       await this.userRepository.save(user);
 
       // Create a wallet for the user
-      const wallet = this.walletRepository.create({ user });
+      const wallet = this.walletRepository.create({
+        user,
+        balance: 0,
+      });
       await this.walletRepository.save(wallet);
     }
 
-    await this.sendMagicLink(email);
+    await this.sendMagicLink(email, user.id);
     return { message: "Magic link sent to your email" };
   }
 
@@ -116,25 +119,36 @@ export class AuthService {
     };
   }
 
-  async sendMagicLink(email: string): Promise<void> {
-    // Find the user or create a new one if it doesn't exist
-    let user = await this.userRepository.findOne({ where: { email } });
+  async sendMagicLink(email: string, userId?: string): Promise<void> {
+    // Find the user or create a new one if it doesn't exist and userId is not provided
+    let user;
 
-    if (!user) {
-      // Create new user
-      user = this.userRepository.create({
-        email,
-        status: UserStatus.PENDING,
-      });
+    if (!userId) {
+      user = await this.userRepository.findOne({ where: { email } });
 
-      await this.userRepository.save(user);
+      if (!user) {
+        // Create new user
+        user = this.userRepository.create({
+          email,
+          status: UserStatus.PENDING,
+        });
 
-      // Create a wallet for the user
-      const wallet = this.walletRepository.create({ user });
-      await this.walletRepository.save(wallet);
+        await this.userRepository.save(user);
+
+        // Create a wallet for the user
+        const wallet = this.walletRepository.create({
+          user,
+          balance: 0,
+        });
+        await this.walletRepository.save(wallet);
+
+        userId = user.id;
+      } else {
+        userId = user.id;
+      }
     }
 
-    await this.magicLinkService.sendMagicLink(email);
+    await this.magicLinkService.sendMagicLink(email, userId);
   }
 
   async getUserProfile(userId: string) {

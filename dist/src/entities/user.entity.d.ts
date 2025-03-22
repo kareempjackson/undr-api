@@ -26,6 +26,7 @@ export declare class User {
     id: string;
     email: string;
     name: string;
+    alias: string;
     role: UserRole;
     status: UserStatus;
     profileImage: string;

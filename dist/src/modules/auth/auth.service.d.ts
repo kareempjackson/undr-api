@@ -40,7 +40,7 @@ export declare class AuthService {
             balance: number;
         };
     }>;
-    sendMagicLink(email: string): Promise<void>;
+    sendMagicLink(email: string, userId?: string): Promise<void>;
     getUserProfile(userId: string): Promise<{
         id: string;
         email: string;

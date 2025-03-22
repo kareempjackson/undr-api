@@ -1,5 +1,5 @@
 import { FansService } from "./fans.service";
-import { DepositDto, PayCreatorDto, CompleteDepositDto } from "./dto";
+import { DepositDto, PayCreatorDto, CompleteDepositDto, PayByAliasDto } from "./dto";
 export declare class FansController {
     private fansService;
     constructor(fansService: FansService);
@@ -18,45 +18,38 @@ export declare class FansController {
         success: boolean;
     }>;
     payCreator(req: any, payDto: PayCreatorDto): Promise<{
+        success: boolean;
         paymentId: string;
+        fromAlias: string;
+        toAlias: string;
         amount: number;
         status: import("../../entities").PaymentStatus;
-        createdAt: Date;
+        timestamp: Date;
+        metadata: object;
+    }>;
+    payByAlias(req: any, alias: string, payDto: PayByAliasDto): Promise<{
+        success: boolean;
+        paymentId: string;
+        fromAlias: string;
+        toAlias: string;
+        amount: number;
+        status: import("../../entities").PaymentStatus;
+        timestamp: Date;
+        metadata: object;
     }>;
     getTransactionHistory(req: any): Promise<{
-        deposits: {
+        userAlias: string;
+        transactions: {
             id: string;
-            type: string;
-            amount: number;
-            status: import("../../entities").DepositStatus;
-            method: import("../../entities").PaymentMethod;
-            createdAt: Date;
-        }[];
-        paymentsSent: {
-            id: string;
-            type: string;
             amount: number;
             status: import("../../entities").PaymentStatus;
-            method: import("../../entities").PaymentMethod;
-            createdAt: Date;
-            recipient: {
-                id: string;
-                name: string;
-            };
             description: string;
-        }[];
-        paymentsReceived: {
-            id: string;
-            type: string;
-            amount: number;
-            status: import("../../entities").PaymentStatus;
+            fromAlias: string;
+            toAlias: string;
+            direction: string;
+            timestamp: Date;
             method: import("../../entities").PaymentMethod;
-            createdAt: Date;
-            sender: {
-                id: string;
-                name: string;
-            };
-            description: string;
+            metadata: object;
         }[];
     }>;
 }

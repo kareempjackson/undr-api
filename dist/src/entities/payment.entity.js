@@ -153,18 +153,36 @@ __decorate([
     __metadata("design:type", Date)
 ], Payment.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
+    (0, typeorm_1.Column)({ nullable: false }),
     __metadata("design:type", String)
 ], Payment.prototype, "fromUserId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: false }),
+    __metadata("design:type", String)
+], Payment.prototype, "toUserId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        nullable: false,
+        transformer: (0, encrypted_column_factory_1.encryptedColumn)(),
+    }),
+    __metadata("design:type", String)
+], Payment.prototype, "fromAlias", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        nullable: false,
+        transformer: (0, encrypted_column_factory_1.encryptedColumn)(),
+    }),
+    __metadata("design:type", String)
+], Payment.prototype, "toAlias", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true }),
+    __metadata("design:type", Object)
+], Payment.prototype, "metadata", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, (user) => user.paymentsSent),
     (0, typeorm_1.JoinColumn)({ name: "fromUserId" }),
     __metadata("design:type", user_entity_1.User)
 ], Payment.prototype, "fromUser", void 0);
-__decorate([
-    (0, typeorm_1.Column)(),
-    __metadata("design:type", String)
-], Payment.prototype, "toUserId", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, (user) => user.paymentsReceived),
     (0, typeorm_1.JoinColumn)({ name: "toUserId" }),

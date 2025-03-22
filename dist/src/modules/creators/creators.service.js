@@ -18,10 +18,14 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../../entities/user.entity");
 const payment_entity_1 = require("../../entities/payment.entity");
+const config_1 = require("@nestjs/config");
+const alias_service_1 = require("../common/services/alias.service");
 let CreatorsService = class CreatorsService {
-    constructor(userRepository, paymentRepository) {
+    constructor(userRepository, paymentRepository, configService, aliasService) {
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.configService = configService;
+        this.aliasService = aliasService;
     }
     async getDashboard(creatorId) {
         var _a;
@@ -86,13 +90,42 @@ let CreatorsService = class CreatorsService {
             transactionCount: payments.length,
         };
     }
+    async getPaymentLink(creatorId) {
+        const creator = await this.userRepository.findOne({
+            where: { id: creatorId },
+        });
+        if (!creator || creator.role !== user_entity_1.UserRole.CREATOR) {
+            throw new common_1.NotFoundException("Creator not found");
+        }
+        const alias = await this.aliasService.generateUniqueAlias(creatorId);
+        const frontendUrl = this.configService.get("FRONTEND_URL") || "http://localhost:3000";
+        return {
+            alias,
+            paymentUrl: `${frontendUrl}/pay/${alias}`,
+            apiEndpoint: `/api/fans/pay/${alias}`,
+        };
+    }
+    async getPaymentLinkByAlias(alias) {
+        const creator = await this.aliasService.findUserByAlias(alias);
+        if (creator.role !== user_entity_1.UserRole.CREATOR) {
+            throw new common_1.NotFoundException("Creator not found");
+        }
+        const frontendUrl = this.configService.get("FRONTEND_URL") || "http://localhost:3000";
+        return {
+            alias,
+            paymentUrl: `${frontendUrl}/pay/${alias}`,
+            apiEndpoint: `/api/fans/pay/${alias}`,
+        };
+    }
 };
 CreatorsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __param(1, (0, typeorm_1.InjectRepository)(payment_entity_1.Payment)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        config_1.ConfigService,
+        alias_service_1.AliasService])
 ], CreatorsService);
 exports.CreatorsService = CreatorsService;
 //# sourceMappingURL=creators.service.js.map

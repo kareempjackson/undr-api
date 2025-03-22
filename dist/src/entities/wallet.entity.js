@@ -12,7 +12,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Wallet = void 0;
 const typeorm_1 = require("typeorm");
 const user_entity_1 = require("./user.entity");
-const encrypted_column_factory_1 = require("../modules/common/transformers/encrypted-column.factory");
 let Wallet = class Wallet {
 };
 __decorate([
@@ -25,7 +24,6 @@ __decorate([
         precision: 10,
         scale: 2,
         default: 0,
-        transformer: (0, encrypted_column_factory_1.encryptedColumn)(),
     }),
     __metadata("design:type", Number)
 ], Wallet.prototype, "balance", void 0);

@@ -39,9 +39,15 @@ export class MagicLinkService {
     }
   }
 
-  async createMagicLink(email: string): Promise<string> {
-    // Find user by email
-    const user = await this.userRepository.findOne({ where: { email } });
+  async createMagicLink(email: string, userId?: string): Promise<string> {
+    // Find user by email only if userId is not provided
+    let user;
+
+    if (userId) {
+      user = await this.userRepository.findOne({ where: { id: userId } });
+    } else {
+      user = await this.userRepository.findOne({ where: { email } });
+    }
 
     if (!user) {
       // User will be created in AuthService
@@ -70,8 +76,8 @@ export class MagicLinkService {
     return token;
   }
 
-  async sendMagicLink(email: string): Promise<void> {
-    const token = await this.createMagicLink(email);
+  async sendMagicLink(email: string, userId?: string): Promise<void> {
+    const token = await this.createMagicLink(email, userId);
 
     // Create the magic link URL - make sure to use FRONTEND_URL which should be port 3000
     const frontendUrl = this.configService.get("FRONTEND_URL");

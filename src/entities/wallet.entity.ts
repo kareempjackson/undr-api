@@ -20,7 +20,7 @@ export class Wallet {
     precision: 10,
     scale: 2,
     default: 0,
-    transformer: encryptedColumn(),
+    //transformer: encryptedColumn(),
   })
   balance: number;
 

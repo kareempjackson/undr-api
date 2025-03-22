@@ -7,6 +7,7 @@ import {
   OneToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from "typeorm";
 import { Wallet } from "./wallet.entity";
 import { Payment } from "./payment.entity";
@@ -53,6 +54,13 @@ export class User {
     transformer: encryptedColumn(),
   })
   name: string;
+
+  @Column({
+    unique: true,
+    nullable: true,
+  })
+  @Index()
+  alias: string;
 
   @Column({
     type: "enum",

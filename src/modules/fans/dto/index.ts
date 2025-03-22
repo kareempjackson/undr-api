@@ -51,3 +51,4 @@ export class PayCreatorDto {
 export * from "./deposit.dto";
 export * from "./pay-creator.dto";
 export * from "./complete-deposit.dto";
+export * from "./pay-by-alias.dto";

@@ -76,4 +76,5 @@ exports.PayCreatorDto = PayCreatorDto;
 __exportStar(require("./deposit.dto"), exports);
 __exportStar(require("./pay-creator.dto"), exports);
 __exportStar(require("./complete-deposit.dto"), exports);
+__exportStar(require("./pay-by-alias.dto"), exports);
 //# sourceMappingURL=index.js.map

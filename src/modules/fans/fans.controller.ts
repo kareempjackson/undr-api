@@ -17,7 +17,13 @@ import { FansService } from "./fans.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
-import { DepositDto, PayCreatorDto, CompleteDepositDto } from "./dto";
+import {
+  DepositDto,
+  PayCreatorDto,
+  CompleteDepositDto,
+  PayByAliasDto,
+} from "./dto";
+import { PrivacyCritical } from "../common/decorators/privacy-critical.decorator";
 
 @ApiTags("Fans")
 @Controller("fans")
@@ -60,14 +66,39 @@ export class FansController {
   @Roles("FAN", "CREATOR")
   @ApiOperation({ summary: "Pay a creator" })
   @ApiResponse({ status: 201, description: "Payment processed successfully" })
+  @PrivacyCritical({
+    regionOnly: true,
+    detectProxy: true,
+  })
   async payCreator(@Request() req, @Body() payDto: PayCreatorDto) {
     return this.fansService.payCreator(req.user.sub, payDto);
+  }
+
+  @Post("pay/:alias")
+  @Roles("FAN", "CREATOR")
+  @ApiOperation({ summary: "Pay a creator using their alias" })
+  @ApiResponse({ status: 201, description: "Payment processed successfully" })
+  @PrivacyCritical({
+    storeNoIpData: true,
+    detectProxy: true,
+  })
+  async payByAlias(
+    @Request() req,
+    @Param("alias") alias: string,
+    @Body() payDto: PayByAliasDto
+  ) {
+    // Override the alias from the URL parameter
+    payDto.toAlias = alias;
+    return this.fansService.payByAlias(req.user.sub, payDto);
   }
 
   @Get("history")
   @Roles("FAN", "CREATOR")
   @ApiOperation({ summary: "Get transaction history" })
   @ApiResponse({ status: 200, description: "Transaction history retrieved" })
+  @PrivacyCritical({
+    regionOnly: true,
+  })
   async getTransactionHistory(@Request() req) {
     return this.fansService.getTransactionHistory(req.user.sub);
   }

@@ -43,8 +43,14 @@ let MagicLinkService = MagicLinkService_1 = class MagicLinkService {
             this.logger.warn("Running in development mode - emails will be logged to console instead of sent");
         }
     }
-    async createMagicLink(email) {
-        const user = await this.userRepository.findOne({ where: { email } });
+    async createMagicLink(email, userId) {
+        let user;
+        if (userId) {
+            user = await this.userRepository.findOne({ where: { id: userId } });
+        }
+        else {
+            user = await this.userRepository.findOne({ where: { email } });
+        }
         if (!user) {
             throw new Error("User not found - should be created before calling this method");
         }
@@ -60,8 +66,8 @@ let MagicLinkService = MagicLinkService_1 = class MagicLinkService {
         await this.magicLinkRepository.save(magicLink);
         return token;
     }
-    async sendMagicLink(email) {
-        const token = await this.createMagicLink(email);
+    async sendMagicLink(email, userId) {
+        const token = await this.createMagicLink(email, userId);
         const frontendUrl = this.configService.get("FRONTEND_URL");
         const magicLinkUrl = `${frontendUrl}/auth/verify?token=${token}`;
         this.logger.log(`Generated magic link for ${email} with token: ${token}`);

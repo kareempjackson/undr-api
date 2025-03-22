@@ -7,7 +7,12 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { PaymentsService } from "../payments/payments.service";
-import { DepositDto, PayCreatorDto, CompleteDepositDto } from "./dto";
+import {
+  DepositDto,
+  PayCreatorDto,
+  CompleteDepositDto,
+  PayByAliasDto,
+} from "./dto";
 import { User, UserRole } from "../../entities/user.entity";
 import { Wallet } from "../../entities/wallet.entity";
 import {
@@ -16,6 +21,7 @@ import {
   PaymentStatus,
 } from "../../entities/payment.entity";
 import { Deposit, DepositStatus } from "../../entities/deposit.entity";
+import { AliasService } from "../common/services/alias.service";
 
 @Injectable()
 export class FansService {
@@ -30,7 +36,8 @@ export class FansService {
     private paymentRepository: Repository<Payment>,
     @InjectRepository(Deposit)
     private depositRepository: Repository<Deposit>,
-    private paymentsService: PaymentsService
+    private paymentsService: PaymentsService,
+    private aliasService: AliasService
   ) {}
 
   async deposit(userId: string, depositDto: DepositDto) {
@@ -176,60 +183,90 @@ export class FansService {
   async payCreator(userId: string, payDto: PayCreatorDto) {
     const { creatorId, amount, description } = payDto;
 
-    // Find fan
-    const fan = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: ["wallet"],
-    });
+    // Find sender and recipient
+    const [sender, recipient] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: userId },
+        relations: ["wallet"],
+      }),
+      this.userRepository.findOne({
+        where: { id: creatorId },
+        relations: ["wallet"],
+      }),
+    ]);
 
-    if (!fan) {
-      throw new NotFoundException("User not found");
+    if (!sender) {
+      throw new NotFoundException("Sender not found");
     }
 
-    // Find creator
-    const creator = await this.userRepository.findOne({
-      where: { id: creatorId, role: UserRole.CREATOR },
-      relations: ["wallet"],
-    });
-
-    if (!creator) {
+    if (!recipient) {
       throw new NotFoundException("Creator not found");
     }
 
-    // Check if fan has enough balance
-    if (fan.wallet.balance < amount) {
+    // Ensure both users have aliases
+    const [senderAlias, recipientAlias] = await Promise.all([
+      this.aliasService.generateUniqueAlias(userId),
+      this.aliasService.generateUniqueAlias(creatorId),
+    ]);
+
+    // Validate wallet exists
+    if (!sender.wallet) {
+      throw new BadRequestException("Sender has no wallet");
+    }
+
+    if (!recipient.wallet) {
+      throw new BadRequestException("Creator has no wallet");
+    }
+
+    // Check if recipient is a creator
+    if (recipient.role !== UserRole.CREATOR) {
+      throw new BadRequestException("Recipient is not a creator");
+    }
+
+    // Check if sender has enough balance
+    if (sender.wallet.balance < amount) {
       throw new BadRequestException("Insufficient balance");
     }
 
-    // Create payment record
+    // Create payment transaction
     const payment = this.paymentRepository.create({
       amount,
-      method: PaymentMethod.WALLET,
       status: PaymentStatus.COMPLETED,
+      method: PaymentMethod.WALLET,
       description: description || "Payment to creator",
-      fromUserId: fan.id,
-      toUserId: creator.id,
+      fromUserId: sender.id,
+      toUserId: recipient.id,
+      fromAlias: senderAlias,
+      toAlias: recipientAlias,
+      metadata: {
+        description: description,
+        method: PaymentMethod.WALLET,
+      },
     });
 
+    // Save payment
     await this.paymentRepository.save(payment);
 
-    // Update wallet balances
-    fan.wallet.balance -= amount;
-    creator.wallet.balance += amount;
+    // Update wallets
+    sender.wallet.balance -= amount;
+    recipient.wallet.balance += amount;
 
-    await this.walletRepository.save(fan.wallet);
-    await this.walletRepository.save(creator.wallet);
+    await this.walletRepository.save([sender.wallet, recipient.wallet]);
 
+    // Return success response with aliases instead of user IDs
     return {
+      success: true,
       paymentId: payment.id,
+      fromAlias: senderAlias,
+      toAlias: recipientAlias,
       amount,
-      status: PaymentStatus.COMPLETED,
-      createdAt: payment.createdAt,
+      status: payment.status,
+      timestamp: payment.createdAt,
+      metadata: payment.metadata,
     };
   }
 
   async getTransactionHistory(userId: string) {
-    // Check if user exists
     const user = await this.userRepository.findOne({
       where: { id: userId },
     });
@@ -238,61 +275,135 @@ export class FansService {
       throw new NotFoundException("User not found");
     }
 
-    // Get deposits
-    const deposits = await this.depositRepository.find({
-      where: { userId },
+    // Generate alias if needed
+    const userAlias = await this.aliasService.generateUniqueAlias(userId);
+
+    // Get transactions where user is sender or recipient
+    const payments = await this.paymentRepository.find({
+      where: [{ fromUserId: userId }, { toUserId: userId }],
       order: { createdAt: "DESC" },
+      relations: ["fromUser", "toUser"],
     });
 
-    // Get payments sent
-    const paymentsSent = await this.paymentRepository.find({
-      where: { fromUserId: userId },
-      relations: ["toUser"],
-      order: { createdAt: "DESC" },
-    });
+    // Ensure aliases are used instead of IDs in the response
+    const transactions = await Promise.all(
+      payments.map(async (payment) => {
+        // Make sure we have aliases for both users
+        if (!payment.fromAlias) {
+          payment.fromAlias = await this.aliasService.generateUniqueAlias(
+            payment.fromUserId
+          );
+        }
 
-    // Get payments received
-    const paymentsReceived = await this.paymentRepository.find({
-      where: { toUserId: userId },
-      relations: ["fromUser"],
-      order: { createdAt: "DESC" },
-    });
+        if (!payment.toAlias) {
+          payment.toAlias = await this.aliasService.generateUniqueAlias(
+            payment.toUserId
+          );
+        }
+
+        return {
+          id: payment.id,
+          amount: payment.amount,
+          status: payment.status,
+          description: payment.description,
+          fromAlias: payment.fromAlias,
+          toAlias: payment.toAlias,
+          direction: payment.fromUserId === userId ? "outgoing" : "incoming",
+          timestamp: payment.createdAt,
+          method: payment.method,
+          metadata: payment.metadata || {},
+        };
+      })
+    );
 
     return {
-      deposits: deposits.map((d) => ({
-        id: d.id,
-        type: "DEPOSIT",
-        amount: d.amount,
-        status: d.status,
-        method: d.method,
-        createdAt: d.createdAt,
-      })),
-      paymentsSent: paymentsSent.map((p) => ({
-        id: p.id,
-        type: "PAYMENT_SENT",
-        amount: p.amount,
-        status: p.status,
-        method: p.method,
-        createdAt: p.createdAt,
-        recipient: {
-          id: p.toUser.id,
-          name: p.toUser.name || p.toUser.email,
-        },
-        description: p.description,
-      })),
-      paymentsReceived: paymentsReceived.map((p) => ({
-        id: p.id,
-        type: "PAYMENT_RECEIVED",
-        amount: p.amount,
-        status: p.status,
-        method: p.method,
-        createdAt: p.createdAt,
-        sender: {
-          id: p.fromUser?.id,
-          name: p.fromUser?.name || "Anonymous",
-        },
-        description: p.description,
-      })),
+      userAlias,
+      transactions,
+    };
+  }
+
+  /**
+   * Pay a creator using their alias instead of ID
+   */
+  async payByAlias(userId: string, payDto: PayByAliasDto) {
+    // Find sender
+    const sender = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ["wallet"],
+    });
+
+    if (!sender) {
+      throw new NotFoundException("User not found");
+    }
+
+    // Ensure sender has an alias
+    const senderAlias = await this.aliasService.generateUniqueAlias(userId);
+
+    // Find recipient by alias
+    const recipient = await this.aliasService.findUserByAlias(payDto.toAlias);
+
+    // Validate wallet exists
+    if (!sender.wallet) {
+      throw new BadRequestException("Sender has no wallet");
+    }
+
+    if (!recipient.wallet) {
+      throw new BadRequestException("Recipient has no wallet");
+    }
+
+    // Check if recipient is a creator
+    if (recipient.role !== UserRole.CREATOR) {
+      throw new BadRequestException("Recipient is not a creator");
+    }
+
+    // Check if sender has enough balance
+    if (sender.wallet.balance < payDto.amount) {
+      throw new BadRequestException("Insufficient balance");
+    }
+
+    // Create metadata with provided fields or empty object
+    const metadata = payDto.metadata || {};
+
+    // Add description to metadata if provided
+    if (payDto.description) {
+      metadata.description = payDto.description;
+    }
+
+    // Always include method in metadata
+    metadata.method = PaymentMethod.WALLET;
+
+    // Create payment transaction
+    const payment = this.paymentRepository.create({
+      amount: payDto.amount,
+      status: PaymentStatus.COMPLETED,
+      method: PaymentMethod.WALLET,
+      description: payDto.description || "Payment",
+      fromUserId: sender.id,
+      toUserId: recipient.id,
+      fromAlias: senderAlias,
+      toAlias: payDto.toAlias,
+      metadata: metadata,
+    });
+
+    // Save payment
+    await this.paymentRepository.save(payment);
+
+    // Update wallets
+    sender.wallet.balance -= payDto.amount;
+    recipient.wallet.balance += payDto.amount;
+
+    await this.walletRepository.save([sender.wallet, recipient.wallet]);
+
+    // Return success with aliases instead of user IDs
+    return {
+      success: true,
+      paymentId: payment.id,
+      fromAlias: senderAlias,
+      toAlias: payDto.toAlias,
+      amount: payDto.amount,
+      status: payment.status,
+      timestamp: payment.createdAt,
+      metadata: payment.metadata,
     };
   }
 }

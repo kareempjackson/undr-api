@@ -38,10 +38,13 @@ let AuthService = class AuthService {
                 status: user_entity_1.UserStatus.PENDING,
             });
             await this.userRepository.save(user);
-            const wallet = this.walletRepository.create({ user });
+            const wallet = this.walletRepository.create({
+                user,
+                balance: 0,
+            });
             await this.walletRepository.save(wallet);
         }
-        await this.sendMagicLink(email);
+        await this.sendMagicLink(email, user.id);
         return { message: "Magic link sent to your email" };
     }
     async verifyMagicLink(token) {
@@ -99,18 +102,28 @@ let AuthService = class AuthService {
             },
         };
     }
-    async sendMagicLink(email) {
-        let user = await this.userRepository.findOne({ where: { email } });
-        if (!user) {
-            user = this.userRepository.create({
-                email,
-                status: user_entity_1.UserStatus.PENDING,
-            });
-            await this.userRepository.save(user);
-            const wallet = this.walletRepository.create({ user });
-            await this.walletRepository.save(wallet);
+    async sendMagicLink(email, userId) {
+        let user;
+        if (!userId) {
+            user = await this.userRepository.findOne({ where: { email } });
+            if (!user) {
+                user = this.userRepository.create({
+                    email,
+                    status: user_entity_1.UserStatus.PENDING,
+                });
+                await this.userRepository.save(user);
+                const wallet = this.walletRepository.create({
+                    user,
+                    balance: 0,
+                });
+                await this.walletRepository.save(wallet);
+                userId = user.id;
+            }
+            else {
+                userId = user.id;
+            }
         }
-        await this.magicLinkService.sendMagicLink(email);
+        await this.magicLinkService.sendMagicLink(email, userId);
     }
     async getUserProfile(userId) {
         var _a, _b;

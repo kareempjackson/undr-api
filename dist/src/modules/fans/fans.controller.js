@@ -20,6 +20,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
 const roles_decorator_1 = require("../common/decorators/roles.decorator");
 const dto_1 = require("./dto");
+const privacy_critical_decorator_1 = require("../common/decorators/privacy-critical.decorator");
 let FansController = class FansController {
     constructor(fansService) {
         this.fansService = fansService;
@@ -35,6 +36,10 @@ let FansController = class FansController {
     }
     async payCreator(req, payDto) {
         return this.fansService.payCreator(req.user.sub, payDto);
+    }
+    async payByAlias(req, alias, payDto) {
+        payDto.toAlias = alias;
+        return this.fansService.payByAlias(req.user.sub, payDto);
     }
     async getTransactionHistory(req) {
         return this.fansService.getTransactionHistory(req.user.sub);
@@ -78,6 +83,10 @@ __decorate([
     (0, roles_decorator_1.Roles)("FAN", "CREATOR"),
     (0, swagger_1.ApiOperation)({ summary: "Pay a creator" }),
     (0, swagger_1.ApiResponse)({ status: 201, description: "Payment processed successfully" }),
+    (0, privacy_critical_decorator_1.PrivacyCritical)({
+        regionOnly: true,
+        detectProxy: true,
+    }),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -85,10 +94,29 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], FansController.prototype, "payCreator", null);
 __decorate([
+    (0, common_1.Post)("pay/:alias"),
+    (0, roles_decorator_1.Roles)("FAN", "CREATOR"),
+    (0, swagger_1.ApiOperation)({ summary: "Pay a creator using their alias" }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: "Payment processed successfully" }),
+    (0, privacy_critical_decorator_1.PrivacyCritical)({
+        storeNoIpData: true,
+        detectProxy: true,
+    }),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)("alias")),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, dto_1.PayByAliasDto]),
+    __metadata("design:returntype", Promise)
+], FansController.prototype, "payByAlias", null);
+__decorate([
     (0, common_1.Get)("history"),
     (0, roles_decorator_1.Roles)("FAN", "CREATOR"),
     (0, swagger_1.ApiOperation)({ summary: "Get transaction history" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Transaction history retrieved" }),
+    (0, privacy_critical_decorator_1.PrivacyCritical)({
+        regionOnly: true,
+    }),
     __param(0, (0, common_1.Request)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

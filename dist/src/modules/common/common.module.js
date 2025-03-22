@@ -13,6 +13,9 @@ const ip_masking_middleware_1 = require("./middleware/ip-masking.middleware");
 const logging_interceptor_1 = require("./interceptors/logging.interceptor");
 const privacy_critical_guard_1 = require("./guards/privacy-critical.guard");
 const security_module_1 = require("../security/security.module");
+const typeorm_1 = require("@nestjs/typeorm");
+const user_entity_1 = require("../../entities/user.entity");
+const alias_service_1 = require("./services/alias.service");
 let CommonModule = class CommonModule {
     configure(consumer) {
         consumer
@@ -24,6 +27,7 @@ CommonModule = __decorate([
     (0, common_1.Module)({
         imports: [
             security_module_1.SecurityModule,
+            typeorm_1.TypeOrmModule.forFeature([user_entity_1.User]),
         ],
         providers: [
             {
@@ -35,8 +39,9 @@ CommonModule = __decorate([
                 useClass: privacy_critical_guard_1.PrivacyCriticalGuard,
             },
             ip_masking_middleware_1.IpMaskingMiddleware,
+            alias_service_1.AliasService,
         ],
-        exports: [ip_masking_middleware_1.IpMaskingMiddleware],
+        exports: [ip_masking_middleware_1.IpMaskingMiddleware, alias_service_1.AliasService],
     })
 ], CommonModule);
 exports.CommonModule = CommonModule;
