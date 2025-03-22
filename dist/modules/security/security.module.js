@@ -16,6 +16,7 @@ const three_ds_service_1 = require("./three-ds.service");
 const dispute_service_1 = require("./dispute.service");
 const escrow_service_1 = require("./escrow.service");
 const security_controller_1 = require("./security.controller");
+const proxy_detection_service_1 = require("./proxy-detection.service");
 let SecurityModule = class SecurityModule {
 };
 SecurityModule = __decorate([
@@ -37,6 +38,7 @@ SecurityModule = __decorate([
             three_ds_service_1.ThreeDsService,
             dispute_service_1.DisputeService,
             escrow_service_1.EscrowService,
+            proxy_detection_service_1.ProxyDetectionService,
         ],
         controllers: [security_controller_1.SecurityController],
         exports: [
@@ -44,6 +46,7 @@ SecurityModule = __decorate([
             three_ds_service_1.ThreeDsService,
             dispute_service_1.DisputeService,
             escrow_service_1.EscrowService,
+            proxy_detection_service_1.ProxyDetectionService,
         ],
     })
 ], SecurityModule);

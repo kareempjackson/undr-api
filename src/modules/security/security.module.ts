@@ -15,6 +15,7 @@ import { ThreeDsService } from "./three-ds.service";
 import { DisputeService } from "./dispute.service";
 import { EscrowService } from "./escrow.service";
 import { SecurityController } from "./security.controller";
+import { ProxyDetectionService } from "./proxy-detection.service";
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { SecurityController } from "./security.controller";
     ThreeDsService,
     DisputeService,
     EscrowService,
+    ProxyDetectionService,
   ],
   controllers: [SecurityController],
   exports: [
@@ -41,6 +43,7 @@ import { SecurityController } from "./security.controller";
     ThreeDsService,
     DisputeService,
     EscrowService,
+    ProxyDetectionService,
   ],
 })
 export class SecurityModule {}

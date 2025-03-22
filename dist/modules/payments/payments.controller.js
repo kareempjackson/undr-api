@@ -22,6 +22,7 @@ const typeorm_2 = require("typeorm");
 const deposit_entity_1 = require("../../entities/deposit.entity");
 const user_entity_1 = require("../../entities/user.entity");
 const wallet_entity_1 = require("../../entities/wallet.entity");
+const privacy_critical_decorator_1 = require("../common/decorators/privacy-critical.decorator");
 let PaymentsController = PaymentsController_1 = class PaymentsController {
     constructor(paymentsService, depositRepository, userRepository, walletRepository) {
         this.paymentsService = paymentsService;
@@ -145,6 +146,11 @@ __decorate([
     (0, common_1.Post)("stripe/webhook"),
     (0, swagger_1.ApiOperation)({ summary: "Handle Stripe webhook events" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Webhook processed successfully" }),
+    (0, privacy_critical_decorator_1.PrivacyCritical)({
+        regionOnly: true,
+        detectProxy: true,
+        proxyHandling: "flag",
+    }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Headers)("stripe-signature")),
     __metadata("design:type", Function),
@@ -153,8 +159,13 @@ __decorate([
 ], PaymentsController.prototype, "handleStripeWebhook", null);
 __decorate([
     (0, common_1.Post)("crypto/webhook"),
-    (0, swagger_1.ApiOperation)({ summary: "Handle crypto payment webhook events" }),
+    (0, swagger_1.ApiOperation)({ summary: "Handle cryptocurrency webhook events" }),
     (0, swagger_1.ApiResponse)({ status: 200, description: "Webhook processed successfully" }),
+    (0, privacy_critical_decorator_1.PrivacyCritical)({
+        storeNoIpData: true,
+        detectProxy: true,
+        proxyHandling: "allow",
+    }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

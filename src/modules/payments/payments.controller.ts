@@ -15,6 +15,7 @@ import { Deposit, DepositStatus } from "../../entities/deposit.entity";
 import { User } from "../../entities/user.entity";
 import { Wallet } from "../../entities/wallet.entity";
 import { Request } from "express";
+import { PrivacyCritical } from "../common/decorators/privacy-critical.decorator";
 
 @ApiTags("Payments")
 @Controller("payments")
@@ -34,6 +35,13 @@ export class PaymentsController {
   @Post("stripe/webhook")
   @ApiOperation({ summary: "Handle Stripe webhook events" })
   @ApiResponse({ status: 200, description: "Webhook processed successfully" })
+  @PrivacyCritical({
+    // For payment webhooks, we should only log region information
+    regionOnly: true,
+    // We want to detect proxies but allow them
+    detectProxy: true,
+    proxyHandling: "flag",
+  })
   async handleStripeWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers("stripe-signature") signature: string
@@ -144,8 +152,14 @@ export class PaymentsController {
   }
 
   @Post("crypto/webhook")
-  @ApiOperation({ summary: "Handle crypto payment webhook events" })
+  @ApiOperation({ summary: "Handle cryptocurrency webhook events" })
   @ApiResponse({ status: 200, description: "Webhook processed successfully" })
+  @PrivacyCritical({
+    // For crypto payments, maximum privacy protection
+    storeNoIpData: true,
+    detectProxy: true,
+    proxyHandling: "allow",
+  })
   async handleCryptoWebhook(@Body() payload: any) {
     try {
       this.logger.log("Processing crypto webhook...");
