@@ -9,6 +9,7 @@ import {
   OneToMany,
 } from "typeorm";
 import { User } from "./user.entity";
+import { encryptedColumn } from "../modules/common/transformers/encrypted-column.factory";
 
 export enum PaymentMethod {
   WALLET = "WALLET",
@@ -41,7 +42,12 @@ export class Payment {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: "decimal", precision: 10, scale: 2 })
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    transformer: encryptedColumn(),
+  })
   amount: number;
 
   @Column({
@@ -57,10 +63,16 @@ export class Payment {
   })
   method: PaymentMethod;
 
-  @Column({ nullable: true })
+  @Column({
+    nullable: true,
+    transformer: encryptedColumn(),
+  })
   description: string;
 
-  @Column({ nullable: true })
+  @Column({
+    nullable: true,
+    transformer: encryptedColumn(),
+  })
   externalId: string;
 
   // Fraud prevention and 3DS fields
@@ -99,10 +111,18 @@ export class Payment {
   @Column({ default: false })
   isInternational: boolean;
 
-  @Column({ type: "jsonb", nullable: true })
+  @Column({
+    type: "jsonb",
+    nullable: true,
+    transformer: encryptedColumn(),
+  })
   invoiceDetails: object;
 
-  @Column({ type: "jsonb", nullable: true })
+  @Column({
+    type: "jsonb",
+    nullable: true,
+    transformer: encryptedColumn(),
+  })
   receiptData: object;
 
   @CreateDateColumn()

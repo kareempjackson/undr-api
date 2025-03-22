@@ -1,0 +1,1 @@
+{"version":3,"file":"verify-magic-link.dto.js","sourceRoot":"","sources":["../../../../../src/modules/auth/dto/verify-magic-link.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,qDAAuD;AACvD,6CAA8C;AAE9C,MAAa,kBAAkB;CAQ9B;AAPC;IAAC,IAAA,qBAAW,EAAC;QACX,WAAW,EAAE,4BAA4B;QACzC,OAAO,EAAE,sCAAsC;KAChD,CAAC;IACD,IAAA,0BAAQ,GAAE;IACV,IAAA,4BAAU,GAAE;;iDACC;AAPhB,gDAQC"}

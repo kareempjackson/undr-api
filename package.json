@@ -22,7 +22,8 @@
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "generate:key": "ts-node -r tsconfig-paths/register ./scripts/generate-encryption-key.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.12",
@@ -49,6 +50,7 @@
     "stripe": "^10.13.0",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.21",
+    "typeorm-encrypted": "^0.8.0",
     "uuid": "^9.0.0",
     "webpack-node-externals": "^3.0.0"
   },

@@ -13,6 +13,7 @@ import { Payment } from "./payment.entity";
 import { Deposit } from "./deposit.entity";
 import { Withdrawal } from "./withdrawal.entity";
 import { MagicLink } from "./magic-link.entity";
+import { encryptedColumn } from "../modules/common/transformers/encrypted-column.factory";
 
 export enum UserRole {
   ADMIN = "ADMIN",
@@ -41,10 +42,16 @@ export class User {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ unique: true })
+  @Column({
+    unique: true,
+    transformer: encryptedColumn(),
+  })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({
+    nullable: true,
+    transformer: encryptedColumn(),
+  })
   name: string;
 
   @Column({
@@ -99,7 +106,10 @@ export class User {
   @Column({ type: "jsonb", default: [] })
   loginHistory: object[];
 
-  @Column({ nullable: true })
+  @Column({
+    nullable: true,
+    transformer: encryptedColumn(),
+  })
   phoneNumber: string;
 
   @Column({ default: false })

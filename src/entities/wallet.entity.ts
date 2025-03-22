@@ -8,13 +8,20 @@ import {
   JoinColumn,
 } from "typeorm";
 import { User } from "./user.entity";
+import { encryptedColumn } from "../modules/common/transformers/encrypted-column.factory";
 
 @Entity("wallets")
 export class Wallet {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
+  @Column({
+    type: "decimal",
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: encryptedColumn(),
+  })
   balance: number;
 
   @CreateDateColumn()
