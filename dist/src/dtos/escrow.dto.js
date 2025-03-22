@@ -9,54 +9,136 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RefundRequestDTO = exports.EscrowResponseDTO = exports.EscrowQueryDTO = exports.DeliveryProofSubmitDTO = exports.EscrowCreateDTO = void 0;
+exports.EscrowFilterDTO = exports.ReviewProofDTO = exports.DeliveryProofSubmitDTO = exports.EscrowDetailedCreateDTO = exports.MilestoneDTO = exports.EscrowCreateDTO = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 const delivery_proof_entity_1 = require("../entities/delivery-proof.entity");
 const escrow_entity_1 = require("../entities/escrow.entity");
 class EscrowCreateDTO {
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "User ID of the sender" }),
+    (0, swagger_1.ApiProperty)({ description: "User ID of the buyer/sender" }),
     (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], EscrowCreateDTO.prototype, "fromUserId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "User ID of the recipient" }),
+    (0, swagger_1.ApiProperty)({ description: "User ID of the seller/recipient" }),
     (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], EscrowCreateDTO.prototype, "toUserId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "The amount to escrow" }),
+    (0, swagger_1.ApiProperty)({ description: "Amount to be held in escrow" }),
     (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.Min)(0.01),
     __metadata("design:type", Number)
 ], EscrowCreateDTO.prototype, "amount", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "Payment ID associated with this escrow" }),
+    (0, swagger_1.ApiProperty)({
+        description: "Payment ID for the escrow funding",
+        required: false,
+    }),
     (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], EscrowCreateDTO.prototype, "paymentId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "Stripe payment intent ID (if applicable)" }),
+    (0, swagger_1.ApiProperty)({
+        description: "Stripe Payment Intent ID if applicable",
+        required: false,
+    }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], EscrowCreateDTO.prototype, "stripePaymentIntentId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({
-        description: "Additional metadata for the escrow",
-        required: false,
-    }),
+    (0, swagger_1.ApiProperty)({ description: "Additional metadata", required: false }),
     (0, class_validator_1.IsObject)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], EscrowCreateDTO.prototype, "metadata", void 0);
 exports.EscrowCreateDTO = EscrowCreateDTO;
+class MilestoneDTO {
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Amount for this milestone" }),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.01),
+    __metadata("design:type", Number)
+], MilestoneDTO.prototype, "amount", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Description of the milestone" }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], MilestoneDTO.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Sequence number of the milestone" }),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], MilestoneDTO.prototype, "sequence", void 0);
+exports.MilestoneDTO = MilestoneDTO;
+class EscrowDetailedCreateDTO {
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Title of the escrow agreement" }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], EscrowDetailedCreateDTO.prototype, "title", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: "Description of the escrow agreement",
+        required: false,
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], EscrowDetailedCreateDTO.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Total amount to be escrowed" }),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsPositive)(),
+    __metadata("design:type", Number)
+], EscrowDetailedCreateDTO.prototype, "totalAmount", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "User ID of the seller" }),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], EscrowDetailedCreateDTO.prototype, "sellerId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Number of days until the escrow expires" }),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], EscrowDetailedCreateDTO.prototype, "expirationDays", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: "Milestones for the escrow",
+        type: [MilestoneDTO],
+    }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_validator_1.ArrayMinSize)(1),
+    (0, class_transformer_1.Type)(() => MilestoneDTO),
+    __metadata("design:type", Array)
+], EscrowDetailedCreateDTO.prototype, "milestones", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: "Legal terms and conditions", required: false }),
+    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], EscrowDetailedCreateDTO.prototype, "terms", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: "Document URLs for the agreement",
+        required: false,
+    }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsUrl)({}, { each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], EscrowDetailedCreateDTO.prototype, "documents", void 0);
+exports.EscrowDetailedCreateDTO = EscrowDetailedCreateDTO;
 class DeliveryProofSubmitDTO {
 }
 __decorate([
@@ -65,124 +147,75 @@ __decorate([
         enum: delivery_proof_entity_1.ProofType,
     }),
     (0, class_validator_1.IsEnum)(delivery_proof_entity_1.ProofType),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], DeliveryProofSubmitDTO.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "Evidence data for the proof" }),
-    (0, class_validator_1.IsObject)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", Object)
-], DeliveryProofSubmitDTO.prototype, "evidence", void 0);
-exports.DeliveryProofSubmitDTO = DeliveryProofSubmitDTO;
-class EscrowQueryDTO {
-}
-__decorate([
-    (0, class_validator_1.IsUUID)(),
+    (0, swagger_1.ApiProperty)({ description: "Description of the proof", required: false }),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], EscrowQueryDTO.prototype, "userId", void 0);
+], DeliveryProofSubmitDTO.prototype, "description", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(escrow_entity_1.EscrowStatus, { each: true }),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_1.ApiProperty)({ description: "File URLs for the proof" }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
-], EscrowQueryDTO.prototype, "status", void 0);
+], DeliveryProofSubmitDTO.prototype, "files", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "Number of items to return", required: false }),
-    (0, class_validator_1.IsNumber)(),
+    (0, swagger_1.ApiProperty)({ description: "Additional metadata", required: false }),
+    (0, class_validator_1.IsObject)(),
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Number)
-], EscrowQueryDTO.prototype, "limit", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ description: "Number of items to skip", required: false }),
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Number)
-], EscrowQueryDTO.prototype, "offset", void 0);
-exports.EscrowQueryDTO = EscrowQueryDTO;
-class EscrowResponseDTO {
+    __metadata("design:type", Object)
+], DeliveryProofSubmitDTO.prototype, "metadata", void 0);
+exports.DeliveryProofSubmitDTO = DeliveryProofSubmitDTO;
+class ReviewProofDTO {
 }
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiProperty)({ description: "Whether to accept the proof" }),
+    (0, class_validator_1.IsEnum)(["accept", "reject"]),
     __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "id", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "paymentId", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", Number)
-], EscrowResponseDTO.prototype, "amount", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ required: false }),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "stripePaymentIntentId", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "fromUserId", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "toUserId", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "fromAlias", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "toAlias", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ enum: escrow_entity_1.EscrowStatus }),
-    __metadata("design:type", String)
-], EscrowResponseDTO.prototype, "status", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", Date)
-], EscrowResponseDTO.prototype, "scheduleReleaseAt", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ required: false }),
-    __metadata("design:type", Date)
-], EscrowResponseDTO.prototype, "releasedAt", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ required: false }),
-    __metadata("design:type", Date)
-], EscrowResponseDTO.prototype, "refundedAt", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", Boolean)
-], EscrowResponseDTO.prototype, "isHighRisk", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", Date)
-], EscrowResponseDTO.prototype, "createdAt", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", Date)
-], EscrowResponseDTO.prototype, "updatedAt", void 0);
+], ReviewProofDTO.prototype, "decision", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: "Additional metadata for the escrow",
+        description: "Reason for rejection if applicable",
         required: false,
     }),
-    (0, class_validator_1.IsObject)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", Object)
-], EscrowResponseDTO.prototype, "metadata", void 0);
-__decorate([
-    (0, swagger_1.ApiProperty)({ type: [Object], required: false }),
-    __metadata("design:type", Array)
-], EscrowResponseDTO.prototype, "deliveryProofs", void 0);
-exports.EscrowResponseDTO = EscrowResponseDTO;
-class RefundRequestDTO {
+    __metadata("design:type", String)
+], ReviewProofDTO.prototype, "rejectionReason", void 0);
+exports.ReviewProofDTO = ReviewProofDTO;
+class EscrowFilterDTO {
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: "Reason for the refund request" }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, swagger_1.ApiProperty)({
+        description: "Filter by escrow status",
+        enum: escrow_entity_1.EscrowStatus,
+        required: false,
+    }),
+    (0, class_validator_1.IsEnum)(escrow_entity_1.EscrowStatus),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], RefundRequestDTO.prototype, "reason", void 0);
-exports.RefundRequestDTO = RefundRequestDTO;
+], EscrowFilterDTO.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: "Maximum number of results to return",
+        required: false,
+    }),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EscrowFilterDTO.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: "Number of results to skip for pagination",
+        required: false,
+    }),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], EscrowFilterDTO.prototype, "offset", void 0);
+exports.EscrowFilterDTO = EscrowFilterDTO;
 //# sourceMappingURL=escrow.dto.js.map

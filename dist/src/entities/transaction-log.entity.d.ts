@@ -1,29 +1,26 @@
-export declare enum LogType {
+import { User } from "./user.entity";
+export declare enum TransactionType {
     ESCROW_CREATED = "ESCROW_CREATED",
-    ESCROW_STATUS_CHANGED = "ESCROW_STATUS_CHANGED",
-    PROOF_SUBMITTED = "PROOF_SUBMITTED",
-    FUNDS_RELEASED = "FUNDS_RELEASED",
-    REFUND_ISSUED = "REFUND_ISSUED",
-    DISPUTE_CREATED = "DISPUTE_CREATED",
-    DISPUTE_RESOLVED = "DISPUTE_RESOLVED",
-    CHARGEBACK_RECEIVED = "CHARGEBACK_RECEIVED",
-    CHARGEBACK_CHALLENGED = "CHARGEBACK_CHALLENGED",
-    CHARGEBACK_RESOLVED = "CHARGEBACK_RESOLVED"
+    ESCROW_FUNDED = "ESCROW_FUNDED",
+    ESCROW_PROOF_SUBMITTED = "ESCROW_PROOF_SUBMITTED",
+    ESCROW_PROOF_REVIEWED = "ESCROW_PROOF_REVIEWED",
+    ESCROW_COMPLETED = "ESCROW_COMPLETED",
+    ESCROW_CANCELLED = "ESCROW_CANCELLED",
+    ESCROW_REFUNDED = "ESCROW_REFUNDED",
+    ESCROW_DISPUTED = "ESCROW_DISPUTED",
+    ESCROW_TERMS_UPDATED = "ESCROW_TERMS_UPDATED",
+    MILESTONE_UPDATED = "MILESTONE_UPDATED"
 }
 export declare class TransactionLog {
     id: string;
-    type: LogType;
-    escrowId: string;
-    paymentId: string;
+    type: TransactionType;
     userId: string;
-    alias: string;
-    timestamp: Date;
-    description: string;
-    data: any;
-    ipHash: string;
-    deviceFingerprint: string;
+    user: User;
+    entityId: string;
+    entityType: string;
+    data: Record<string, any>;
+    ipAddress: string;
     userAgent: string;
-    stripePaymentIntentId: string;
-    stripeDisputeId: string;
+    metadata: Record<string, any>;
     createdAt: Date;
 }

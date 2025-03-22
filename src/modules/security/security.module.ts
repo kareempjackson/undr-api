@@ -9,6 +9,8 @@ import {
   RiskAssessment,
   Escrow,
   EscrowMilestone,
+  DeliveryProof,
+  TransactionLog,
 } from "../../entities";
 import { RiskAssessmentService } from "./risk-assessment.service";
 import { ThreeDsService } from "./three-ds.service";
@@ -29,6 +31,8 @@ import { EncryptionService } from "./encryption.service";
       RiskAssessment,
       Escrow,
       EscrowMilestone,
+      DeliveryProof,
+      TransactionLog,
     ]),
   ],
   providers: [

@@ -7,3 +7,5 @@ export * from "./magic-link.entity";
 export * from "./dispute.entity";
 export * from "./risk-assessment.entity";
 export * from "./escrow.entity";
+export * from "./delivery-proof.entity";
+export * from "./transaction-log.entity";

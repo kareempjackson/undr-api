@@ -32,6 +32,8 @@ SecurityModule = __decorate([
                 entities_1.RiskAssessment,
                 entities_1.Escrow,
                 entities_1.EscrowMilestone,
+                entities_1.DeliveryProof,
+                entities_1.TransactionLog,
             ]),
         ],
         providers: [

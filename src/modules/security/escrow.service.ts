@@ -1,6 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import {
   Escrow,
   EscrowStatus,
@@ -14,6 +20,16 @@ import {
 } from "../../entities/payment.entity";
 import { User } from "../../entities/user.entity";
 import { Wallet } from "../../entities/wallet.entity";
+import {
+  DeliveryProof,
+  ProofStatus,
+  ProofType,
+} from "../../entities/delivery-proof.entity";
+import {
+  TransactionLog,
+  TransactionType,
+} from "../../entities/transaction-log.entity";
+import { DeliveryProofSubmitDTO } from "../../dtos/escrow.dto";
 
 interface CreateEscrowParams {
   title: string;
@@ -28,6 +44,7 @@ interface CreateEscrowParams {
     sequence: number;
   }>;
   terms?: any;
+  documents?: string[];
 }
 
 interface MilestoneUpdateParams {
@@ -39,6 +56,8 @@ interface MilestoneUpdateParams {
 
 @Injectable()
 export class EscrowService {
+  private readonly logger = new Logger(EscrowService.name);
+
   constructor(
     @InjectRepository(Escrow)
     private escrowRepository: Repository<Escrow>,
@@ -49,13 +68,21 @@ export class EscrowService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Wallet)
-    private walletRepository: Repository<Wallet>
+    private walletRepository: Repository<Wallet>,
+    @InjectRepository(DeliveryProof)
+    private deliveryProofRepository: Repository<DeliveryProof>,
+    @InjectRepository(TransactionLog)
+    private transactionLogRepository: Repository<TransactionLog>,
+    private dataSource: DataSource
   ) {}
 
   /**
    * Create an escrow agreement
    */
-  async createEscrow(params: CreateEscrowParams): Promise<Escrow> {
+  async createEscrow(
+    params: CreateEscrowParams,
+    requestMetadata?: any
+  ): Promise<Escrow> {
     const {
       title,
       description,
@@ -65,6 +92,7 @@ export class EscrowService {
       expirationDays,
       milestones,
       terms,
+      documents,
     } = params;
 
     // Validate users
@@ -77,13 +105,28 @@ export class EscrowService {
       where: { id: sellerId },
     });
 
-    if (!buyer || !seller) {
-      throw new Error("Buyer or seller not found");
+    if (!buyer) {
+      throw new BadRequestException("Buyer not found");
+    }
+
+    if (!seller) {
+      throw new BadRequestException("Seller not found");
     }
 
     // Validate buyer has sufficient funds
     if (!buyer.wallet || Number(buyer.wallet.balance) < totalAmount) {
-      throw new Error("Insufficient funds in buyer wallet");
+      throw new BadRequestException("Insufficient funds in buyer wallet");
+    }
+
+    // Validate milestones total matches escrow amount
+    const milestonesTotal = milestones.reduce(
+      (sum, m) => sum + Number(m.amount),
+      0
+    );
+    if (Math.abs(milestonesTotal - totalAmount) > 0.01) {
+      throw new BadRequestException(
+        "Sum of milestone amounts must equal the total escrow amount"
+      );
     }
 
     // Create escrow
@@ -102,182 +145,388 @@ export class EscrowService {
       escrow.terms = terms;
     }
 
-    // Save escrow first to get ID
-    const savedEscrow = await this.escrowRepository.save(escrow);
+    // Handle additional agreement documents
+    if (documents && documents.length > 0) {
+      escrow.evidenceFiles = documents;
+    }
 
-    // Create milestones
-    const escrowMilestones = milestones.map((milestone) => {
-      const escrowMilestone = new EscrowMilestone();
-      escrowMilestone.escrowId = savedEscrow.id;
-      escrowMilestone.amount = milestone.amount;
-      escrowMilestone.description = milestone.description;
-      escrowMilestone.sequence = milestone.sequence;
-      escrowMilestone.status = MilestoneStatus.PENDING;
-      return escrowMilestone;
-    });
+    // Use a transaction to ensure all operations succeed or fail together
+    return this.dataSource.transaction(async (manager) => {
+      // Save escrow first to get ID
+      const savedEscrow = await manager.save(Escrow, escrow);
 
-    await this.milestoneRepository.save(escrowMilestones);
+      // Create milestones
+      const escrowMilestones = milestones.map((milestone) => {
+        const escrowMilestone = new EscrowMilestone();
+        escrowMilestone.escrowId = savedEscrow.id;
+        escrowMilestone.amount = milestone.amount;
+        escrowMilestone.description = milestone.description;
+        escrowMilestone.sequence = milestone.sequence;
+        escrowMilestone.status = MilestoneStatus.PENDING;
+        return escrowMilestone;
+      });
 
-    return this.escrowRepository.findOne({
-      where: { id: savedEscrow.id },
-      relations: ["milestones"],
+      await manager.save(EscrowMilestone, escrowMilestones);
+
+      // Log the transaction
+      await this.logTransaction(
+        manager,
+        TransactionType.ESCROW_CREATED,
+        buyerId,
+        savedEscrow.id,
+        "Escrow",
+        {
+          escrowId: savedEscrow.id,
+          title,
+          totalAmount,
+          sellerId,
+        },
+        requestMetadata
+      );
+
+      // Return the complete escrow with relationships
+      return manager.findOne(Escrow, {
+        where: { id: savedEscrow.id },
+        relations: ["milestones"],
+      });
     });
   }
 
   /**
    * Fund an escrow from buyer's wallet
    */
-  async fundEscrow(escrowId: string, buyerId: string): Promise<Escrow> {
-    const escrow = await this.escrowRepository.findOne({
-      where: { id: escrowId },
-      relations: ["milestones"],
+  async fundEscrow(
+    escrowId: string,
+    buyerId: string,
+    requestMetadata?: any
+  ): Promise<Escrow> {
+    return this.dataSource.transaction(async (manager) => {
+      const escrow = await manager.findOne(Escrow, {
+        where: { id: escrowId },
+        relations: ["milestones"],
+      });
+
+      if (!escrow) {
+        throw new NotFoundException("Escrow not found");
+      }
+
+      if (escrow.buyerId !== buyerId) {
+        throw new ForbiddenException("Only the buyer can fund the escrow");
+      }
+
+      if (escrow.status !== EscrowStatus.PENDING) {
+        throw new BadRequestException("Escrow is not in pending status");
+      }
+
+      // Get buyer wallet
+      const buyer = await manager.findOne(User, {
+        where: { id: buyerId },
+        relations: ["wallet"],
+      });
+
+      if (
+        !buyer ||
+        !buyer.wallet ||
+        Number(buyer.wallet.balance) < Number(escrow.totalAmount)
+      ) {
+        throw new BadRequestException("Insufficient funds in buyer wallet");
+      }
+
+      // Deduct from buyer's wallet
+      buyer.wallet.balance =
+        Number(buyer.wallet.balance) - Number(escrow.totalAmount);
+      await manager.save(Wallet, buyer.wallet);
+
+      // Create payment record
+      const payment = new Payment();
+      payment.amount = escrow.totalAmount;
+      payment.fromUserId = escrow.buyerId;
+      payment.toUserId = escrow.sellerId;
+      payment.status = PaymentStatus.ESCROW;
+      payment.method = PaymentMethod.WALLET;
+      payment.description = `Escrow payment for: ${escrow.title}`;
+
+      const savedPayment = await manager.save(Payment, payment);
+
+      // Update escrow status and link to payment
+      escrow.status = EscrowStatus.FUNDED;
+      escrow.paymentId = savedPayment.id;
+      const updatedEscrow = await manager.save(Escrow, escrow);
+
+      // Log the transaction
+      await this.logTransaction(
+        manager,
+        TransactionType.ESCROW_FUNDED,
+        buyerId,
+        escrowId,
+        "Escrow",
+        {
+          escrowId,
+          totalAmount: escrow.totalAmount,
+          paymentId: savedPayment.id,
+        },
+        requestMetadata
+      );
+
+      return updatedEscrow;
     });
+  }
 
-    if (!escrow) {
-      throw new Error("Escrow not found");
-    }
+  /**
+   * Submit proof of delivery for an escrow
+   */
+  async submitDeliveryProof(
+    escrowId: string,
+    data: DeliveryProofSubmitDTO,
+    userId: string,
+    requestMetadata?: any
+  ): Promise<DeliveryProof> {
+    return this.dataSource.transaction(async (manager) => {
+      const escrow = await manager.findOne(Escrow, {
+        where: { id: escrowId },
+      });
 
-    if (escrow.buyerId !== buyerId) {
-      throw new Error("Only the buyer can fund the escrow");
-    }
+      if (!escrow) {
+        throw new NotFoundException("Escrow not found");
+      }
 
-    if (escrow.status !== EscrowStatus.PENDING) {
-      throw new Error("Escrow is not in pending status");
-    }
+      if (escrow.sellerId !== userId) {
+        throw new ForbiddenException(
+          "Only the seller can submit delivery proof"
+        );
+      }
 
-    // Get buyer wallet
-    const buyer = await this.userRepository.findOne({
-      where: { id: buyerId },
-      relations: ["wallet"],
+      if (escrow.status !== EscrowStatus.FUNDED) {
+        throw new BadRequestException(
+          "Proof can only be submitted for funded escrows"
+        );
+      }
+
+      // Create the proof
+      const proof = new DeliveryProof();
+      proof.escrowId = escrowId;
+      proof.submittedById = userId;
+      proof.type = data.type;
+      proof.description = data.description;
+      proof.files = data.files;
+      proof.status = ProofStatus.PENDING;
+      proof.metadata = data.metadata || {};
+
+      const savedProof = await manager.save(DeliveryProof, proof);
+
+      // Log the transaction
+      await this.logTransaction(
+        manager,
+        TransactionType.ESCROW_PROOF_SUBMITTED,
+        userId,
+        escrowId,
+        "Escrow",
+        {
+          escrowId,
+          proofId: savedProof.id,
+          type: data.type,
+          files: data.files,
+        },
+        requestMetadata
+      );
+
+      return savedProof;
     });
+  }
 
-    if (
-      !buyer ||
-      !buyer.wallet ||
-      Number(buyer.wallet.balance) < Number(escrow.totalAmount)
-    ) {
-      throw new Error("Insufficient funds in buyer wallet");
-    }
+  /**
+   * Review submitted proof
+   */
+  async reviewDeliveryProof(
+    proofId: string,
+    decision: "accept" | "reject",
+    userId: string,
+    rejectionReason?: string,
+    requestMetadata?: any
+  ): Promise<DeliveryProof> {
+    return this.dataSource.transaction(async (manager) => {
+      const proof = await manager.findOne(DeliveryProof, {
+        where: { id: proofId },
+        relations: ["escrow"],
+      });
 
-    // Deduct from buyer's wallet
-    buyer.wallet.balance =
-      Number(buyer.wallet.balance) - Number(escrow.totalAmount);
-    await this.walletRepository.save(buyer.wallet);
+      if (!proof) {
+        throw new NotFoundException("Delivery proof not found");
+      }
 
-    // Create payment record
-    const payment = new Payment();
-    payment.amount = escrow.totalAmount;
-    payment.fromUserId = escrow.buyerId;
-    payment.toUserId = escrow.sellerId;
-    payment.status = PaymentStatus.ESCROW;
-    payment.method = PaymentMethod.WALLET;
-    payment.description = `Escrow payment for: ${escrow.title}`;
+      const escrow = proof.escrow;
 
-    const savedPayment = await this.paymentRepository.save(payment);
+      if (escrow.buyerId !== userId) {
+        throw new ForbiddenException(
+          "Only the buyer can review delivery proof"
+        );
+      }
 
-    // Update escrow status and link to payment
-    escrow.status = EscrowStatus.FUNDED;
-    escrow.paymentId = savedPayment.id;
+      if (proof.status !== ProofStatus.PENDING) {
+        throw new BadRequestException("Proof has already been reviewed");
+      }
 
-    return this.escrowRepository.save(escrow);
+      // Update the proof status
+      proof.status =
+        decision === "accept" ? ProofStatus.ACCEPTED : ProofStatus.REJECTED;
+      proof.reviewedById = userId;
+      proof.reviewedAt = new Date();
+
+      if (decision === "reject" && rejectionReason) {
+        proof.rejectionReason = rejectionReason;
+      }
+
+      const updatedProof = await manager.save(DeliveryProof, proof);
+
+      // If proof is accepted, complete the escrow
+      if (decision === "accept") {
+        await this.completeEscrow(escrow.id, manager);
+      }
+
+      // Log the transaction
+      await this.logTransaction(
+        manager,
+        TransactionType.ESCROW_PROOF_REVIEWED,
+        userId,
+        proof.escrowId,
+        "Escrow",
+        {
+          escrowId: proof.escrowId,
+          proofId,
+          decision,
+          rejectionReason,
+        },
+        requestMetadata
+      );
+
+      return updatedProof;
+    });
   }
 
   /**
    * Update a milestone status
    */
   async updateMilestone(
-    params: MilestoneUpdateParams
+    params: MilestoneUpdateParams,
+    requestMetadata?: any
   ): Promise<EscrowMilestone> {
-    const { escrowId, milestoneId, status, userId } = params;
+    return this.dataSource.transaction(async (manager) => {
+      const { escrowId, milestoneId, status, userId } = params;
 
-    const escrow = await this.escrowRepository.findOne({
-      where: { id: escrowId },
-      relations: ["milestones"],
+      const escrow = await manager.findOne(Escrow, {
+        where: { id: escrowId },
+        relations: ["milestones"],
+      });
+
+      if (!escrow) {
+        throw new NotFoundException("Escrow not found");
+      }
+
+      // Check permissions
+      if (status === MilestoneStatus.COMPLETED && userId !== escrow.buyerId) {
+        throw new ForbiddenException(
+          "Only the buyer can mark a milestone as completed"
+        );
+      }
+
+      if (
+        status === MilestoneStatus.DISPUTED &&
+        userId !== escrow.buyerId &&
+        userId !== escrow.sellerId
+      ) {
+        throw new ForbiddenException(
+          "Only the buyer or seller can dispute a milestone"
+        );
+      }
+
+      // Find the milestone
+      const milestone = escrow.milestones.find((m) => m.id === milestoneId);
+      if (!milestone) {
+        throw new NotFoundException("Milestone not found");
+      }
+
+      // Update milestone status
+      milestone.status = status;
+
+      if (status === MilestoneStatus.COMPLETED) {
+        milestone.completedAt = new Date();
+      }
+
+      // Save the updated milestone
+      const updatedMilestone = await manager.save(EscrowMilestone, milestone);
+
+      // If all milestones are completed, update escrow status
+      const allMilestones = await manager.find(EscrowMilestone, {
+        where: { escrowId },
+      });
+
+      const allCompleted = allMilestones.every(
+        (m) => m.status === MilestoneStatus.COMPLETED
+      );
+
+      if (allCompleted) {
+        await this.completeEscrow(escrowId, manager);
+      }
+
+      // Log the transaction
+      await this.logTransaction(
+        manager,
+        TransactionType.MILESTONE_UPDATED,
+        userId,
+        milestoneId,
+        "EscrowMilestone",
+        {
+          escrowId,
+          milestoneId,
+          status,
+        },
+        requestMetadata
+      );
+
+      return updatedMilestone;
     });
-
-    if (!escrow) {
-      throw new Error("Escrow not found");
-    }
-
-    // Check permissions
-    if (status === MilestoneStatus.COMPLETED && userId !== escrow.buyerId) {
-      throw new Error("Only the buyer can mark a milestone as completed");
-    }
-
-    if (
-      status === MilestoneStatus.DISPUTED &&
-      userId !== escrow.buyerId &&
-      userId !== escrow.sellerId
-    ) {
-      throw new Error("Only the buyer or seller can dispute a milestone");
-    }
-
-    // Find the milestone
-    const milestone = escrow.milestones.find((m) => m.id === milestoneId);
-    if (!milestone) {
-      throw new Error("Milestone not found");
-    }
-
-    // Update milestone status
-    milestone.status = status;
-
-    if (status === MilestoneStatus.COMPLETED) {
-      milestone.completedAt = new Date();
-    }
-
-    // If all milestones are completed, update escrow status
-    const updatedMilestone = await this.milestoneRepository.save(milestone);
-
-    const allMilestones = await this.milestoneRepository.find({
-      where: { escrowId },
-    });
-
-    const allCompleted = allMilestones.every(
-      (m) => m.status === MilestoneStatus.COMPLETED
-    );
-
-    if (allCompleted) {
-      await this.completeEscrow(escrowId);
-    }
-
-    return updatedMilestone;
   }
 
   /**
    * Complete an escrow and release funds to seller
    */
-  async completeEscrow(escrowId: string): Promise<Escrow> {
-    const escrow = await this.escrowRepository.findOne({
+  async completeEscrow(
+    escrowId: string,
+    transactionManager?: any
+  ): Promise<Escrow> {
+    const manager = transactionManager || this.dataSource.manager;
+
+    const escrow = await manager.findOne(Escrow, {
       where: { id: escrowId },
       relations: ["milestones"],
     });
 
     if (!escrow) {
-      throw new Error("Escrow not found");
+      throw new NotFoundException("Escrow not found");
     }
 
     if (escrow.status !== EscrowStatus.FUNDED) {
-      throw new Error("Escrow is not in funded status");
+      throw new BadRequestException("Escrow is not in funded status");
     }
 
     // Get seller wallet
-    const seller = await this.userRepository.findOne({
+    const seller = await manager.findOne(User, {
       where: { id: escrow.sellerId },
       relations: ["wallet"],
     });
 
     if (!seller || !seller.wallet) {
-      throw new Error("Seller wallet not found");
+      throw new NotFoundException("Seller wallet not found");
     }
 
     // Add funds to seller's wallet
     seller.wallet.balance =
       Number(seller.wallet.balance) + Number(escrow.totalAmount);
-    await this.walletRepository.save(seller.wallet);
+    await manager.save(Wallet, seller.wallet);
 
     // Update payment status
     if (escrow.paymentId) {
-      await this.paymentRepository.update(escrow.paymentId, {
+      await manager.update(Payment, escrow.paymentId, {
         status: PaymentStatus.COMPLETED,
       });
     }
@@ -286,71 +535,115 @@ export class EscrowService {
     escrow.status = EscrowStatus.COMPLETED;
     escrow.completedAt = new Date();
 
-    return this.escrowRepository.save(escrow);
+    const updatedEscrow = await manager.save(Escrow, escrow);
+
+    // If we're not in a transaction already, log the completion
+    if (!transactionManager) {
+      await this.logTransaction(
+        manager,
+        TransactionType.ESCROW_COMPLETED,
+        escrow.buyerId,
+        escrowId,
+        "Escrow",
+        {
+          escrowId,
+          totalAmount: escrow.totalAmount,
+          sellerId: escrow.sellerId,
+        }
+      );
+    }
+
+    return updatedEscrow;
   }
 
   /**
    * Cancel an escrow and refund buyer
    */
-  async cancelEscrow(escrowId: string, userId: string): Promise<Escrow> {
-    const escrow = await this.escrowRepository.findOne({
-      where: { id: escrowId },
-    });
-
-    if (!escrow) {
-      throw new Error("Escrow not found");
-    }
-
-    // Check permissions
-    if (userId !== escrow.buyerId && userId !== escrow.sellerId) {
-      throw new Error("Only the buyer or seller can cancel the escrow");
-    }
-
-    if (
-      escrow.status !== EscrowStatus.PENDING &&
-      escrow.status !== EscrowStatus.FUNDED
-    ) {
-      throw new Error("Escrow cannot be cancelled in its current state");
-    }
-
-    // If funded, refund the buyer
-    if (escrow.status === EscrowStatus.FUNDED) {
-      const buyer = await this.userRepository.findOne({
-        where: { id: escrow.buyerId },
-        relations: ["wallet"],
+  async cancelEscrow(
+    escrowId: string,
+    userId: string,
+    requestMetadata?: any
+  ): Promise<Escrow> {
+    return this.dataSource.transaction(async (manager) => {
+      const escrow = await manager.findOne(Escrow, {
+        where: { id: escrowId },
       });
 
-      if (!buyer || !buyer.wallet) {
-        throw new Error("Buyer wallet not found");
+      if (!escrow) {
+        throw new NotFoundException("Escrow not found");
       }
 
-      // Add funds back to buyer's wallet
-      buyer.wallet.balance =
-        Number(buyer.wallet.balance) + Number(escrow.totalAmount);
-      await this.walletRepository.save(buyer.wallet);
+      // Check permissions
+      if (userId !== escrow.buyerId && userId !== escrow.sellerId) {
+        throw new ForbiddenException(
+          "Only the buyer or seller can cancel the escrow"
+        );
+      }
 
-      // Update payment status if exists
-      if (escrow.paymentId) {
-        await this.paymentRepository.update(escrow.paymentId, {
-          status: PaymentStatus.REFUNDED,
+      if (
+        escrow.status !== EscrowStatus.PENDING &&
+        escrow.status !== EscrowStatus.FUNDED
+      ) {
+        throw new BadRequestException(
+          "Escrow cannot be cancelled in its current state"
+        );
+      }
+
+      // If funded, refund the buyer
+      if (escrow.status === EscrowStatus.FUNDED) {
+        const buyer = await manager.findOne(User, {
+          where: { id: escrow.buyerId },
+          relations: ["wallet"],
         });
+
+        if (!buyer || !buyer.wallet) {
+          throw new NotFoundException("Buyer wallet not found");
+        }
+
+        // Add funds back to buyer's wallet
+        buyer.wallet.balance =
+          Number(buyer.wallet.balance) + Number(escrow.totalAmount);
+        await manager.save(Wallet, buyer.wallet);
+
+        // Update payment status if exists
+        if (escrow.paymentId) {
+          await manager.update(Payment, escrow.paymentId, {
+            status: PaymentStatus.REFUNDED,
+          });
+        }
       }
-    }
 
-    // Update escrow status
-    escrow.status = EscrowStatus.CANCELLED;
+      // Update escrow status
+      escrow.status = EscrowStatus.CANCELLED;
+      const updatedEscrow = await manager.save(Escrow, escrow);
 
-    return this.escrowRepository.save(escrow);
+      // Log the transaction
+      await this.logTransaction(
+        manager,
+        TransactionType.ESCROW_CANCELLED,
+        userId,
+        escrowId,
+        "Escrow",
+        {
+          escrowId,
+          status: escrow.status,
+          cancelledBy: userId,
+        },
+        requestMetadata
+      );
+
+      return updatedEscrow;
+    });
   }
 
   /**
-   * Get escrows by user
+   * Get escrows for a user
    */
   async getEscrowsByUser(
     userId: string,
     status?: EscrowStatus,
-    limit: number = 10,
-    offset: number = 0
+    limit?: number,
+    offset?: number
   ): Promise<{ escrows: Escrow[]; total: number }> {
     const queryBuilder = this.escrowRepository
       .createQueryBuilder("escrow")
@@ -365,11 +658,17 @@ export class EscrowService {
 
     const total = await queryBuilder.getCount();
 
-    const escrows = await queryBuilder
-      .orderBy("escrow.createdAt", "DESC")
-      .take(limit)
-      .skip(offset)
-      .getMany();
+    queryBuilder.orderBy("escrow.createdAt", "DESC");
+
+    if (limit) {
+      queryBuilder.take(limit);
+    }
+
+    if (offset) {
+      queryBuilder.skip(offset);
+    }
+
+    const escrows = await queryBuilder.getMany();
 
     return { escrows, total };
   }
@@ -384,9 +683,58 @@ export class EscrowService {
     });
 
     if (!escrow) {
-      throw new Error("Escrow not found");
+      throw new NotFoundException("Escrow not found");
     }
 
     return escrow;
+  }
+
+  /**
+   * Get delivery proofs for an escrow
+   */
+  async getEscrowProofs(escrowId: string): Promise<DeliveryProof[]> {
+    const proofs = await this.deliveryProofRepository.find({
+      where: { escrowId },
+      order: { createdAt: "DESC" },
+    });
+
+    return proofs;
+  }
+
+  /**
+   * Log a transaction for auditing purposes
+   */
+  private async logTransaction(
+    manager: any,
+    type: TransactionType,
+    userId: string,
+    entityId: string,
+    entityType: string,
+    data: Record<string, any>,
+    requestMetadata?: any
+  ): Promise<TransactionLog> {
+    try {
+      const log = new TransactionLog();
+      log.type = type;
+      log.userId = userId;
+      log.entityId = entityId;
+      log.entityType = entityType;
+      log.data = data;
+
+      if (requestMetadata) {
+        log.ipAddress = requestMetadata.ip;
+        log.userAgent = requestMetadata.userAgent;
+        log.metadata = requestMetadata;
+      }
+
+      return await manager.save(TransactionLog, log);
+    } catch (error) {
+      // Log error but don't fail the main transaction
+      this.logger.error(
+        `Failed to log transaction: ${error.message}`,
+        error.stack
+      );
+      return null;
+    }
   }
 }

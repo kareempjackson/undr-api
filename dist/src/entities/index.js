@@ -23,4 +23,6 @@ __exportStar(require("./magic-link.entity"), exports);
 __exportStar(require("./dispute.entity"), exports);
 __exportStar(require("./risk-assessment.entity"), exports);
 __exportStar(require("./escrow.entity"), exports);
+__exportStar(require("./delivery-proof.entity"), exports);
+__exportStar(require("./transaction-log.entity"), exports);
 //# sourceMappingURL=index.js.map

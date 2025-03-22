@@ -9,21 +9,22 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TransactionLog = exports.LogType = void 0;
+exports.TransactionLog = exports.TransactionType = void 0;
 const typeorm_1 = require("typeorm");
-var LogType;
-(function (LogType) {
-    LogType["ESCROW_CREATED"] = "ESCROW_CREATED";
-    LogType["ESCROW_STATUS_CHANGED"] = "ESCROW_STATUS_CHANGED";
-    LogType["PROOF_SUBMITTED"] = "PROOF_SUBMITTED";
-    LogType["FUNDS_RELEASED"] = "FUNDS_RELEASED";
-    LogType["REFUND_ISSUED"] = "REFUND_ISSUED";
-    LogType["DISPUTE_CREATED"] = "DISPUTE_CREATED";
-    LogType["DISPUTE_RESOLVED"] = "DISPUTE_RESOLVED";
-    LogType["CHARGEBACK_RECEIVED"] = "CHARGEBACK_RECEIVED";
-    LogType["CHARGEBACK_CHALLENGED"] = "CHARGEBACK_CHALLENGED";
-    LogType["CHARGEBACK_RESOLVED"] = "CHARGEBACK_RESOLVED";
-})(LogType = exports.LogType || (exports.LogType = {}));
+const user_entity_1 = require("./user.entity");
+var TransactionType;
+(function (TransactionType) {
+    TransactionType["ESCROW_CREATED"] = "ESCROW_CREATED";
+    TransactionType["ESCROW_FUNDED"] = "ESCROW_FUNDED";
+    TransactionType["ESCROW_PROOF_SUBMITTED"] = "ESCROW_PROOF_SUBMITTED";
+    TransactionType["ESCROW_PROOF_REVIEWED"] = "ESCROW_PROOF_REVIEWED";
+    TransactionType["ESCROW_COMPLETED"] = "ESCROW_COMPLETED";
+    TransactionType["ESCROW_CANCELLED"] = "ESCROW_CANCELLED";
+    TransactionType["ESCROW_REFUNDED"] = "ESCROW_REFUNDED";
+    TransactionType["ESCROW_DISPUTED"] = "ESCROW_DISPUTED";
+    TransactionType["ESCROW_TERMS_UPDATED"] = "ESCROW_TERMS_UPDATED";
+    TransactionType["MILESTONE_UPDATED"] = "MILESTONE_UPDATED";
+})(TransactionType = exports.TransactionType || (exports.TransactionType = {}));
 let TransactionLog = class TransactionLog {
 };
 __decorate([
@@ -31,64 +32,42 @@ __decorate([
     __metadata("design:type", String)
 ], TransactionLog.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({
-        type: "enum",
-        enum: LogType,
-    }),
+    (0, typeorm_1.Column)({ type: "enum", enum: TransactionType }),
     __metadata("design:type", String)
 ], TransactionLog.prototype, "type", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
-    (0, typeorm_1.Index)(),
-    __metadata("design:type", String)
-], TransactionLog.prototype, "escrowId", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
-    (0, typeorm_1.Index)(),
-    __metadata("design:type", String)
-], TransactionLog.prototype, "paymentId", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
-    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], TransactionLog.prototype, "userId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "varchar", length: 100, nullable: true }),
-    __metadata("design:type", String)
-], TransactionLog.prototype, "alias", void 0);
+    (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: "userId" }),
+    __metadata("design:type", user_entity_1.User)
+], TransactionLog.prototype, "user", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp" }),
-    (0, typeorm_1.Index)(),
-    __metadata("design:type", Date)
-], TransactionLog.prototype, "timestamp", void 0);
+    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
+    __metadata("design:type", String)
+], TransactionLog.prototype, "entityId", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "text" }),
     __metadata("design:type", String)
-], TransactionLog.prototype, "description", void 0);
+], TransactionLog.prototype, "entityType", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "json" }),
+    (0, typeorm_1.Column)({ type: "jsonb" }),
     __metadata("design:type", Object)
 ], TransactionLog.prototype, "data", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "varchar", length: 255, nullable: true }),
+    (0, typeorm_1.Column)({ type: "inet", nullable: true }),
     __metadata("design:type", String)
-], TransactionLog.prototype, "ipHash", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: "varchar", length: 255, nullable: true }),
-    __metadata("design:type", String)
-], TransactionLog.prototype, "deviceFingerprint", void 0);
+], TransactionLog.prototype, "ipAddress", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "text", nullable: true }),
     __metadata("design:type", String)
 ], TransactionLog.prototype, "userAgent", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "varchar", length: 255, nullable: true }),
-    __metadata("design:type", String)
-], TransactionLog.prototype, "stripePaymentIntentId", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: "varchar", length: 255, nullable: true }),
-    __metadata("design:type", String)
-], TransactionLog.prototype, "stripeDisputeId", void 0);
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true }),
+    __metadata("design:type", Object)
+], TransactionLog.prototype, "metadata", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

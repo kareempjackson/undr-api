@@ -9,19 +9,24 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeliveryProof = exports.ProofType = void 0;
+exports.DeliveryProof = exports.ProofStatus = exports.ProofType = void 0;
 const typeorm_1 = require("typeorm");
+const user_entity_1 = require("./user.entity");
 const escrow_entity_1 = require("./escrow.entity");
 var ProofType;
 (function (ProofType) {
-    ProofType["SCREENSHOT"] = "SCREENSHOT";
-    ProofType["TRACKING_NUMBER"] = "TRACKING_NUMBER";
-    ProofType["DIGITAL_DELIVERY"] = "DIGITAL_DELIVERY";
-    ProofType["CREATOR_CONFIRMATION"] = "CREATOR_CONFIRMATION";
-    ProofType["FAN_CONFIRMATION"] = "FAN_CONFIRMATION";
-    ProofType["SYSTEM_VERIFICATION"] = "SYSTEM_VERIFICATION";
-    ProofType["ADMIN_OVERRIDE"] = "ADMIN_OVERRIDE";
+    ProofType["IMAGE"] = "IMAGE";
+    ProofType["DOCUMENT"] = "DOCUMENT";
+    ProofType["VIDEO"] = "VIDEO";
+    ProofType["LINK"] = "LINK";
+    ProofType["TEXT"] = "TEXT";
 })(ProofType = exports.ProofType || (exports.ProofType = {}));
+var ProofStatus;
+(function (ProofStatus) {
+    ProofStatus["PENDING"] = "PENDING";
+    ProofStatus["ACCEPTED"] = "ACCEPTED";
+    ProofStatus["REJECTED"] = "REJECTED";
+})(ProofStatus = exports.ProofStatus || (exports.ProofStatus = {}));
 let DeliveryProof = class DeliveryProof {
 };
 __decorate([
@@ -29,37 +34,60 @@ __decorate([
     __metadata("design:type", String)
 ], DeliveryProof.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "uuid" }),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], DeliveryProof.prototype, "escrowId", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => escrow_entity_1.Escrow, (escrow) => escrow.deliveryProofs),
+    (0, typeorm_1.ManyToOne)(() => escrow_entity_1.Escrow),
     (0, typeorm_1.JoinColumn)({ name: "escrowId" }),
     __metadata("design:type", escrow_entity_1.Escrow)
 ], DeliveryProof.prototype, "escrow", void 0);
 __decorate([
-    (0, typeorm_1.Column)({
-        type: "enum",
-        enum: ProofType,
-    }),
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", String)
+], DeliveryProof.prototype, "submittedById", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => user_entity_1.User),
+    (0, typeorm_1.JoinColumn)({ name: "submittedById" }),
+    __metadata("design:type", user_entity_1.User)
+], DeliveryProof.prototype, "submittedBy", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "enum", enum: ProofType }),
     __metadata("design:type", String)
 ], DeliveryProof.prototype, "type", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "json" }),
-    __metadata("design:type", Object)
-], DeliveryProof.prototype, "evidence", void 0);
+    (0, typeorm_1.Column)({ type: "text", nullable: true }),
+    __metadata("design:type", String)
+], DeliveryProof.prototype, "description", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "boolean", default: false }),
-    __metadata("design:type", Boolean)
-], DeliveryProof.prototype, "verified", void 0);
+    (0, typeorm_1.Column)({ type: "jsonb" }),
+    __metadata("design:type", Array)
+], DeliveryProof.prototype, "files", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "enum", enum: ProofStatus, default: ProofStatus.PENDING }),
+    __metadata("design:type", String)
+], DeliveryProof.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], DeliveryProof.prototype, "reviewedById", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: "reviewedById" }),
+    __metadata("design:type", user_entity_1.User)
+], DeliveryProof.prototype, "reviewedBy", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "text", nullable: true }),
+    __metadata("design:type", String)
+], DeliveryProof.prototype, "rejectionReason", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
     __metadata("design:type", Date)
-], DeliveryProof.prototype, "verifiedAt", void 0);
+], DeliveryProof.prototype, "reviewedAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
-    __metadata("design:type", String)
-], DeliveryProof.prototype, "verifiedBy", void 0);
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true }),
+    __metadata("design:type", Object)
+], DeliveryProof.prototype, "metadata", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
