@@ -13,7 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EscrowSchedulerService = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
-const escrow_service_1 = require("../modules/escrow/escrow.service");
+const escrow_service_1 = require("../modules/security/escrow.service");
 let EscrowSchedulerService = EscrowSchedulerService_1 = class EscrowSchedulerService {
     constructor(escrowService) {
         this.escrowService = escrowService;
@@ -31,7 +31,7 @@ let EscrowSchedulerService = EscrowSchedulerService_1 = class EscrowSchedulerSer
     }
 };
 __decorate([
-    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_HOUR),
+    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_4_HOURS),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

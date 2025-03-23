@@ -51,6 +51,7 @@ export declare class EscrowService {
     }>;
     getEscrowById(escrowId: string): Promise<Escrow>;
     getEscrowProofs(escrowId: string): Promise<DeliveryProof[]>;
+    processScheduledReleases(): Promise<number>;
     private logTransaction;
 }
 export {};

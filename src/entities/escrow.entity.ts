@@ -125,4 +125,7 @@ export class Escrow {
 
   @Column({ type: "timestamp", nullable: true })
   completedAt: Date;
+
+  @Column({ type: "timestamp", nullable: true })
+  scheduleReleaseAt: Date;
 }

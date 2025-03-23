@@ -8,6 +8,7 @@ import { PaymentsModule } from "./modules/payments/payments.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { CommonModule } from "./modules/common/common.module";
 import { SecurityModule } from "./modules/security/security.module";
+import { TasksModule } from "./tasks/tasks.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SecurityModule } from "./modules/security/security.module";
     PaymentsModule,
     AdminModule,
     SecurityModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

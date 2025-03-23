@@ -44,4 +44,5 @@ export declare class Escrow {
     createdAt: Date;
     updatedAt: Date;
     completedAt: Date;
+    scheduleReleaseAt: Date;
 }

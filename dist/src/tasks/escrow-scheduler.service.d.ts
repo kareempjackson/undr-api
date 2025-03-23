@@ -1,4 +1,4 @@
-import { EscrowService } from "../modules/escrow/escrow.service";
+import { EscrowService } from "../modules/security/escrow.service";
 export declare class EscrowSchedulerService {
     private readonly escrowService;
     private readonly logger;

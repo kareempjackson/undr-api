@@ -17,6 +17,7 @@ const payments_module_1 = require("./modules/payments/payments.module");
 const admin_module_1 = require("./modules/admin/admin.module");
 const common_module_1 = require("./modules/common/common.module");
 const security_module_1 = require("./modules/security/security.module");
+const tasks_module_1 = require("./tasks/tasks.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -35,6 +36,7 @@ AppModule = __decorate([
             payments_module_1.PaymentsModule,
             admin_module_1.AdminModule,
             security_module_1.SecurityModule,
+            tasks_module_1.TasksModule,
         ],
     })
 ], AppModule);

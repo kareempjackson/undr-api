@@ -141,6 +141,11 @@ export class EscrowService {
       Date.now() + expirationDays * 24 * 60 * 60 * 1000
     );
 
+    // Set automatic release date (3 days from now)
+    const scheduleReleaseAt = new Date();
+    scheduleReleaseAt.setDate(scheduleReleaseAt.getDate() + 3);
+    escrow.scheduleReleaseAt = scheduleReleaseAt;
+
     if (terms) {
       escrow.terms = terms;
     }
@@ -699,6 +704,71 @@ export class EscrowService {
     });
 
     return proofs;
+  }
+
+  /**
+   * Process all escrows scheduled for automatic release
+   * This method checks for escrows that have reached their scheduleReleaseAt date
+   * and automatically releases the funds to the seller
+   */
+  async processScheduledReleases(): Promise<number> {
+    const now = new Date();
+    this.logger.log(
+      `Processing scheduled escrow releases at ${now.toISOString()}`
+    );
+
+    // Find escrows ready for scheduled release
+    const escrows = await this.escrowRepository.find({
+      where: {
+        status: EscrowStatus.FUNDED,
+        scheduleReleaseAt: now < new Date() ? now : undefined,
+      },
+      relations: ["milestones"],
+    });
+
+    this.logger.log(
+      `Found ${escrows.length} escrows scheduled for automatic release`
+    );
+
+    let releasedCount = 0;
+
+    // Process each escrow in a transaction
+    for (const escrow of escrows) {
+      try {
+        await this.dataSource.transaction(async (manager) => {
+          // Update escrow status and release funds
+          await this.completeEscrow(escrow.id, manager);
+
+          // Log the automatic release
+          await this.logTransaction(
+            manager,
+            TransactionType.ESCROW_COMPLETED,
+            escrow.buyerId,
+            escrow.id,
+            "Escrow",
+            {
+              escrowId: escrow.id,
+              totalAmount: escrow.totalAmount,
+              scheduleReleaseAt: escrow.scheduleReleaseAt,
+              reason: "Automatic release based on schedule",
+            }
+          );
+        });
+
+        releasedCount++;
+        this.logger.log(`Successfully released escrow ${escrow.id}`);
+      } catch (error) {
+        this.logger.error(
+          `Failed to release escrow ${escrow.id}: ${error.message}`,
+          error.stack
+        );
+      }
+    }
+
+    this.logger.log(
+      `Successfully processed ${releasedCount} of ${escrows.length} scheduled releases`
+    );
+    return releasedCount;
   }
 
   /**

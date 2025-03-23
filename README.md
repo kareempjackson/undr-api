@@ -2,6 +2,22 @@
 
 This is the backend service for GhostPay - Anonymous payments for adult creators.
 
+## Features
+
+### Core Payment System
+
+- Secure wallet-based transactions
+- Payment history and tracking
+- Multiple payment methods support
+
+### Escrow System
+
+- Secure escrow agreements between buyers and sellers
+- Milestone-based project delivery
+- Proof of delivery submission and verification
+- Automatic and manual escrow release
+- Transaction logging for audit purposes
+
 ## Docker Setup
 
 The backend service is fully dockerized for easy setup and deployment.
@@ -89,3 +105,42 @@ For production deployment, consider setting proper environment variables and sec
 2. Set `NODE_ENV=production`
 3. Use strong, unique passwords for database and JWT
 4. Consider setting up a reverse proxy (like Nginx) for SSL termination
+
+## Testing
+
+### Running Tests
+
+To run all tests:
+
+```bash
+npm test
+```
+
+To run specific tests:
+
+```bash
+npm test -- --testPathPattern=escrow
+```
+
+### Escrow System Tests
+
+The escrow system includes comprehensive end-to-end tests that verify:
+
+- Escrow creation and funding
+- Proof submission and review
+- Milestone completion
+- Automatic release functionality
+
+To run escrow-specific tests:
+
+```bash
+npm test src/modules/security/escrow.e2e.spec.ts
+```
+
+## Documentation
+
+Detailed documentation is available in the `docs` directory:
+
+- [Escrow API Reference](docs/escrow-api-reference.md)
+- [Escrow System Deployment Guide](docs/escrow-system-deployment.md)
+- [Escrow System Implementation Summary](docs/escrow-system-implementation-summary.md)
