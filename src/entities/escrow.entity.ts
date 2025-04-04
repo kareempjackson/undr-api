@@ -10,6 +10,7 @@ import {
 } from "typeorm";
 import { User } from "./user.entity";
 import { Payment } from "./payment.entity";
+import { Dispute } from "./dispute.entity";
 
 export enum EscrowStatus {
   PENDING = "PENDING",
@@ -128,4 +129,9 @@ export class Escrow {
 
   @Column({ type: "timestamp", nullable: true })
   scheduleReleaseAt: Date;
+
+  @OneToMany(() => Dispute, (dispute) => dispute.escrowId, {
+    cascade: true,
+  })
+  disputes: Dispute[];
 }

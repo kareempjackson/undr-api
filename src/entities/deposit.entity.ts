@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { User } from "./user.entity";
-import { PaymentMethod } from "./payment.entity";
+import { PaymentMethod } from "./common.enums";
 
 export enum DepositStatus {
   PENDING = "PENDING",

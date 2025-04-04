@@ -9,36 +9,11 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Payment = exports.ThreeDsStatus = exports.PaymentStatus = exports.PaymentMethod = void 0;
+exports.Payment = void 0;
 const typeorm_1 = require("typeorm");
 const user_entity_1 = require("./user.entity");
 const encrypted_column_factory_1 = require("../modules/common/transformers/encrypted-column.factory");
-var PaymentMethod;
-(function (PaymentMethod) {
-    PaymentMethod["WALLET"] = "WALLET";
-    PaymentMethod["CREDIT_CARD"] = "CREDIT_CARD";
-    PaymentMethod["CRYPTO_BTC"] = "CRYPTO_BTC";
-    PaymentMethod["CRYPTO_ETH"] = "CRYPTO_ETH";
-    PaymentMethod["CRYPTO_USDT"] = "CRYPTO_USDT";
-})(PaymentMethod = exports.PaymentMethod || (exports.PaymentMethod = {}));
-var PaymentStatus;
-(function (PaymentStatus) {
-    PaymentStatus["PENDING"] = "PENDING";
-    PaymentStatus["COMPLETED"] = "COMPLETED";
-    PaymentStatus["FAILED"] = "FAILED";
-    PaymentStatus["REFUNDED"] = "REFUNDED";
-    PaymentStatus["DISPUTED"] = "DISPUTED";
-    PaymentStatus["HELD"] = "HELD";
-    PaymentStatus["ESCROW"] = "ESCROW";
-})(PaymentStatus = exports.PaymentStatus || (exports.PaymentStatus = {}));
-var ThreeDsStatus;
-(function (ThreeDsStatus) {
-    ThreeDsStatus["NOT_REQUIRED"] = "NOT_REQUIRED";
-    ThreeDsStatus["REQUIRED"] = "REQUIRED";
-    ThreeDsStatus["AUTHENTICATED"] = "AUTHENTICATED";
-    ThreeDsStatus["FAILED"] = "FAILED";
-    ThreeDsStatus["REJECTED"] = "REJECTED";
-})(ThreeDsStatus = exports.ThreeDsStatus || (exports.ThreeDsStatus = {}));
+const common_enums_1 = require("./common.enums");
 let Payment = class Payment {
 };
 __decorate([
@@ -57,15 +32,15 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",
-        enum: PaymentStatus,
-        default: PaymentStatus.PENDING,
+        enum: common_enums_1.PaymentStatus,
+        default: common_enums_1.PaymentStatus.PENDING,
     }),
     __metadata("design:type", String)
 ], Payment.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",
-        enum: PaymentMethod,
+        enum: common_enums_1.PaymentMethod,
     }),
     __metadata("design:type", String)
 ], Payment.prototype, "method", void 0);
@@ -86,8 +61,8 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",
-        enum: ThreeDsStatus,
-        default: ThreeDsStatus.NOT_REQUIRED,
+        enum: common_enums_1.ThreeDsStatus,
+        default: common_enums_1.ThreeDsStatus.NOT_REQUIRED,
         nullable: true,
     }),
     __metadata("design:type", String)

@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CryptoService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const payment_entity_1 = require("../../entities/payment.entity");
+const common_enums_1 = require("../../entities/common.enums");
 const uuid_1 = require("uuid");
 let CryptoService = class CryptoService {
     constructor(configService) {
@@ -41,11 +41,11 @@ let CryptoService = class CryptoService {
     }
     mapPaymentMethodToCurrency(method) {
         switch (method) {
-            case payment_entity_1.PaymentMethod.CRYPTO_BTC:
+            case common_enums_1.PaymentMethod.CRYPTO_BTC:
                 return "BTC";
-            case payment_entity_1.PaymentMethod.CRYPTO_ETH:
+            case common_enums_1.PaymentMethod.CRYPTO_ETH:
                 return "ETH";
-            case payment_entity_1.PaymentMethod.CRYPTO_USDT:
+            case common_enums_1.PaymentMethod.CRYPTO_USDT:
                 return "USDT";
             default:
                 return "BTC";
@@ -65,11 +65,11 @@ let CryptoService = class CryptoService {
     }
     getMockAddress(method) {
         switch (method) {
-            case payment_entity_1.PaymentMethod.CRYPTO_BTC:
+            case common_enums_1.PaymentMethod.CRYPTO_BTC:
                 return "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy";
-            case payment_entity_1.PaymentMethod.CRYPTO_ETH:
+            case common_enums_1.PaymentMethod.CRYPTO_ETH:
                 return "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-            case payment_entity_1.PaymentMethod.CRYPTO_USDT:
+            case common_enums_1.PaymentMethod.CRYPTO_USDT:
                 return "TKrjq8gpLKD3WUYv5pNpgDmzQFWbZbfQge";
             default:
                 return "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy";

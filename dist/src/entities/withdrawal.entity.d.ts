@@ -1,11 +1,5 @@
 import { User } from "./user.entity";
-import { PaymentMethod } from "./payment.entity";
-export declare enum WithdrawalStatus {
-    PENDING = "PENDING",
-    COMPLETED = "COMPLETED",
-    FAILED = "FAILED",
-    REJECTED = "REJECTED"
-}
+import { PaymentMethod, WithdrawalStatus } from "./common.enums";
 export declare class Withdrawal {
     id: string;
     amount: number;

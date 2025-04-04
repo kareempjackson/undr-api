@@ -3,7 +3,8 @@ import { PaymentsService } from "../payments/payments.service";
 import { DepositDto, PayCreatorDto, CompleteDepositDto, PayByAliasDto } from "./dto";
 import { User } from "../../entities/user.entity";
 import { Wallet } from "../../entities/wallet.entity";
-import { Payment, PaymentMethod, PaymentStatus } from "../../entities/payment.entity";
+import { Payment } from "../../entities/payment.entity";
+import { PaymentMethod, PaymentStatus } from "../../entities/common.enums";
 import { Deposit, DepositStatus } from "../../entities/deposit.entity";
 import { AliasService } from "../common/services/alias.service";
 export declare class FansService {

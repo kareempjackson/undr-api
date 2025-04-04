@@ -1,5 +1,6 @@
 import { User } from "./user.entity";
 import { Payment } from "./payment.entity";
+import { Dispute } from "./dispute.entity";
 export declare enum EscrowStatus {
     PENDING = "PENDING",
     FUNDED = "FUNDED",
@@ -45,4 +46,5 @@ export declare class Escrow {
     updatedAt: Date;
     completedAt: Date;
     scheduleReleaseAt: Date;
+    disputes: Dispute[];
 }

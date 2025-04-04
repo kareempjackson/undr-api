@@ -2,10 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const testing_1 = require("@nestjs/testing");
 const security_controller_1 = require("./security.controller");
-const escrow_service_1 = require("./escrow.service");
 const risk_assessment_service_1 = require("./risk-assessment.service");
-const dispute_service_1 = require("./dispute.service");
 const three_ds_service_1 = require("./three-ds.service");
+const dispute_service_1 = require("../dispute/dispute.service");
+const escrow_service_1 = require("./escrow.service");
 const proxy_detection_service_1 = require("./proxy-detection.service");
 const encryption_service_1 = require("./encryption.service");
 const jwt_1 = require("@nestjs/jwt");
@@ -17,28 +17,37 @@ const common_1 = require("@nestjs/common");
 describe("SecurityController", () => {
     let controller;
     let escrowService;
+    let riskAssessmentService;
+    let threeDsService;
+    let disputeService;
     const mockEscrowService = {
         createEscrow: jest.fn(),
         fundEscrow: jest.fn(),
         submitDeliveryProof: jest.fn(),
+        getEscrowProofs: jest.fn(),
         reviewDeliveryProof: jest.fn(),
-        updateMilestone: jest.fn(),
+        updateMilestoneStatus: jest.fn(),
         completeEscrow: jest.fn(),
         cancelEscrow: jest.fn(),
-        getEscrowsByUser: jest.fn(),
+        getEscrows: jest.fn(),
         getEscrowById: jest.fn(),
-        getEscrowProofs: jest.fn(),
+        evaluateRisk: jest.fn(),
     };
     const mockRiskAssessmentService = {
-        evaluateRisk: jest.fn(),
+        assessRisk: jest.fn(),
+        getPendingReviews: jest.fn(),
+        reviewAssessment: jest.fn(),
     };
     const mockDisputeService = {
         createDispute: jest.fn(),
-        getDisputeById: jest.fn(),
+        submitEvidence: jest.fn(),
+        resolveDisputeByAdmin: jest.fn(),
+        getDisputesForUser: jest.fn(),
+        getDisputeDetails: jest.fn(),
     };
     const mockThreeDsService = {
-        createPaymentIntent: jest.fn(),
-        getPaymentIntentStatus: jest.fn(),
+        create3dsIntent: jest.fn(),
+        check3dsStatus: jest.fn(),
     };
     const mockProxyDetectionService = {
         detectProxy: jest.fn(),
@@ -70,13 +79,34 @@ describe("SecurityController", () => {
         const module = await testing_1.Test.createTestingModule({
             controllers: [security_controller_1.SecurityController],
             providers: [
-                { provide: escrow_service_1.EscrowService, useValue: mockEscrowService },
-                { provide: risk_assessment_service_1.RiskAssessmentService, useValue: mockRiskAssessmentService },
-                { provide: dispute_service_1.DisputeService, useValue: mockDisputeService },
-                { provide: three_ds_service_1.ThreeDsService, useValue: mockThreeDsService },
-                { provide: proxy_detection_service_1.ProxyDetectionService, useValue: mockProxyDetectionService },
-                { provide: encryption_service_1.EncryptionService, useValue: mockEncryptionService },
-                { provide: jwt_1.JwtService, useValue: mockJwtService },
+                {
+                    provide: escrow_service_1.EscrowService,
+                    useValue: mockEscrowService,
+                },
+                {
+                    provide: risk_assessment_service_1.RiskAssessmentService,
+                    useValue: mockRiskAssessmentService,
+                },
+                {
+                    provide: dispute_service_1.DisputeService,
+                    useValue: mockDisputeService,
+                },
+                {
+                    provide: three_ds_service_1.ThreeDsService,
+                    useValue: mockThreeDsService,
+                },
+                {
+                    provide: proxy_detection_service_1.ProxyDetectionService,
+                    useValue: mockProxyDetectionService,
+                },
+                {
+                    provide: encryption_service_1.EncryptionService,
+                    useValue: mockEncryptionService,
+                },
+                {
+                    provide: jwt_1.JwtService,
+                    useValue: mockJwtService,
+                },
                 {
                     provide: (0, typeorm_1.getRepositoryToken)(escrow_entity_1.Escrow),
                     useValue: { findOne: jest.fn(), find: jest.fn(), save: jest.fn() },
@@ -93,14 +123,14 @@ describe("SecurityController", () => {
         }).compile();
         controller = module.get(security_controller_1.SecurityController);
         escrowService = module.get(escrow_service_1.EscrowService);
-        jest
-            .spyOn(controller, "extractRequestMetadata")
-            .mockImplementation(() => ({
+        riskAssessmentService = module.get(risk_assessment_service_1.RiskAssessmentService);
+        threeDsService = module.get(three_ds_service_1.ThreeDsService);
+        disputeService = module.get(dispute_service_1.DisputeService);
+        jest.spyOn(controller, "extractRequestMetadata").mockReturnValue({
             ip: "127.0.0.1",
-            userAgent: "Test User Agent",
+            userAgent: "test-agent",
             timestamp: new Date().toISOString(),
-            userId: "test-user-id",
-        }));
+        });
     });
     it("should be defined", () => {
         expect(controller).toBeDefined();

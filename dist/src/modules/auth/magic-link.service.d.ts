@@ -9,7 +9,7 @@ export declare class MagicLinkService {
     private readonly logger;
     private readonly devModeSkipEmail;
     constructor(configService: ConfigService, userRepository: Repository<User>, magicLinkRepository: Repository<MagicLink>);
-    createMagicLink(email: string, userId?: string): Promise<string>;
+    createMagicLink(email: string, userId?: string, timestamp?: number): Promise<string>;
     sendMagicLink(email: string, userId?: string): Promise<void>;
     verifyToken(token: string): Promise<string>;
 }

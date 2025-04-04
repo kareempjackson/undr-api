@@ -1,0 +1,32 @@
+export enum PaymentMethod {
+  WALLET = "WALLET",
+  CREDIT_CARD = "CREDIT_CARD",
+  CRYPTO_BTC = "CRYPTO_BTC",
+  CRYPTO_ETH = "CRYPTO_ETH",
+  CRYPTO_USDT = "CRYPTO_USDT",
+}
+
+export enum WithdrawalStatus {
+  PENDING = "PENDING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  REJECTED = "REJECTED",
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+  DISPUTED = "DISPUTED",
+  HELD = "HELD",
+  ESCROW = "ESCROW",
+}
+
+export enum ThreeDsStatus {
+  NOT_REQUIRED = "NOT_REQUIRED",
+  REQUIRED = "REQUIRED",
+  AUTHENTICATED = "AUTHENTICATED",
+  FAILED = "FAILED",
+  REJECTED = "REJECTED",
+}

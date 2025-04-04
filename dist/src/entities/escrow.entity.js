@@ -13,6 +13,7 @@ exports.Escrow = exports.EscrowMilestone = exports.MilestoneStatus = exports.Esc
 const typeorm_1 = require("typeorm");
 const user_entity_1 = require("./user.entity");
 const payment_entity_1 = require("./payment.entity");
+const dispute_entity_1 = require("./dispute.entity");
 var EscrowStatus;
 (function (EscrowStatus) {
     EscrowStatus["PENDING"] = "PENDING";
@@ -162,6 +163,12 @@ __decorate([
     (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
     __metadata("design:type", Date)
 ], Escrow.prototype, "scheduleReleaseAt", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => dispute_entity_1.Dispute, (dispute) => dispute.escrowId, {
+        cascade: true,
+    }),
+    __metadata("design:type", Array)
+], Escrow.prototype, "disputes", void 0);
 Escrow = __decorate([
     (0, typeorm_1.Entity)("escrows")
 ], Escrow);

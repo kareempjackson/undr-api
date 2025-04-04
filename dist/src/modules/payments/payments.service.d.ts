@@ -126,7 +126,7 @@
 /// <reference types="stripe/types/lib" />
 /// <reference types="stripe/types/net/net" />
 import { ConfigService } from "@nestjs/config";
-import { PaymentMethod } from "../../entities/payment.entity";
+import { PaymentMethod } from "../../entities/common.enums";
 import { StripeService } from "./stripe.service";
 import { CryptoService } from "./crypto.service";
 export declare class PaymentsService {

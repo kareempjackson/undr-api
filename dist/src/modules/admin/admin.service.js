@@ -18,6 +18,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../../entities/user.entity");
 const payment_entity_1 = require("../../entities/payment.entity");
+const common_enums_1 = require("../../entities/common.enums");
 const date_fns_1 = require("date-fns");
 let AdminService = class AdminService {
     constructor(userRepository, paymentRepository) {
@@ -105,7 +106,7 @@ let AdminService = class AdminService {
     async getSummaryData(start, end) {
         const completedPayments = await this.paymentRepository.find({
             where: {
-                status: payment_entity_1.PaymentStatus.COMPLETED,
+                status: common_enums_1.PaymentStatus.COMPLETED,
                 createdAt: (0, typeorm_2.Between)(start, end),
             },
         });
@@ -132,7 +133,7 @@ let AdminService = class AdminService {
             (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         const prevCompletedPayments = await this.paymentRepository.find({
             where: {
-                status: payment_entity_1.PaymentStatus.COMPLETED,
+                status: common_enums_1.PaymentStatus.COMPLETED,
                 createdAt: (0, typeorm_2.Between)(prevStart, start),
             },
         });
@@ -189,7 +190,7 @@ let AdminService = class AdminService {
         const payments = await this.paymentRepository.find({
             where: {
                 createdAt: (0, typeorm_2.Between)(start, end),
-                status: payment_entity_1.PaymentStatus.COMPLETED,
+                status: common_enums_1.PaymentStatus.COMPLETED,
             },
         });
         const revenueByPeriod = {};
@@ -335,7 +336,7 @@ let AdminService = class AdminService {
         });
         const topCreators = creators.map((creator) => {
             const totalRevenue = creator.paymentsReceived
-                .filter((payment) => payment.status === payment_entity_1.PaymentStatus.COMPLETED)
+                .filter((payment) => payment.status === common_enums_1.PaymentStatus.COMPLETED)
                 .reduce((sum, payment) => sum + Number(payment.amount), 0);
             return {
                 id: creator.id,
@@ -353,7 +354,7 @@ let AdminService = class AdminService {
     async getPaymentMethodsDistribution() {
         const payments = await this.paymentRepository.find({
             where: {
-                status: payment_entity_1.PaymentStatus.COMPLETED,
+                status: common_enums_1.PaymentStatus.COMPLETED,
             },
             select: {
                 method: true,

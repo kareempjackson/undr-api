@@ -13,11 +13,11 @@ const config_1 = require("@nestjs/config");
 const entities_1 = require("../../entities");
 const risk_assessment_service_1 = require("./risk-assessment.service");
 const three_ds_service_1 = require("./three-ds.service");
-const dispute_service_1 = require("./dispute.service");
 const escrow_service_1 = require("./escrow.service");
 const security_controller_1 = require("./security.controller");
 const proxy_detection_service_1 = require("./proxy-detection.service");
 const encryption_service_1 = require("./encryption.service");
+const dispute_module_1 = require("../dispute/dispute.module");
 let SecurityModule = class SecurityModule {
 };
 SecurityModule = __decorate([
@@ -35,11 +35,11 @@ SecurityModule = __decorate([
                 entities_1.DeliveryProof,
                 entities_1.TransactionLog,
             ]),
+            dispute_module_1.DisputeModule,
         ],
         providers: [
             risk_assessment_service_1.RiskAssessmentService,
             three_ds_service_1.ThreeDsService,
-            dispute_service_1.DisputeService,
             escrow_service_1.EscrowService,
             proxy_detection_service_1.ProxyDetectionService,
             encryption_service_1.EncryptionService,
@@ -48,7 +48,6 @@ SecurityModule = __decorate([
         exports: [
             risk_assessment_service_1.RiskAssessmentService,
             three_ds_service_1.ThreeDsService,
-            dispute_service_1.DisputeService,
             escrow_service_1.EscrowService,
             proxy_detection_service_1.ProxyDetectionService,
             encryption_service_1.EncryptionService,

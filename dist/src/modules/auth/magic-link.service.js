@@ -43,47 +43,73 @@ let MagicLinkService = MagicLinkService_1 = class MagicLinkService {
             this.logger.warn("Running in development mode - emails will be logged to console instead of sent");
         }
     }
-    async createMagicLink(email, userId) {
-        let user;
-        if (userId) {
-            user = await this.userRepository.findOne({ where: { id: userId } });
-        }
-        else {
-            user = await this.userRepository.findOne({ where: { email } });
-        }
-        if (!user) {
-            throw new Error("User not found - should be created before calling this method");
-        }
-        const token = (0, uuid_1.v4)();
+    async createMagicLink(email, userId, timestamp) {
+        const tokenBase = timestamp ? `${(0, uuid_1.v4)()}-${timestamp}` : (0, uuid_1.v4)();
+        const token = tokenBase.toLowerCase();
         const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-        const magicLink = this.magicLinkRepository.create({
-            token,
-            expiresAt,
-            user,
-            userId: user.id,
-        });
-        await this.magicLinkRepository.save(magicLink);
-        return token;
+        expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+        try {
+            await this.magicLinkRepository.query(`INSERT INTO magic_links (token, "expiresAt", used, "userId", "createdAt") 
+         VALUES ($1, $2, $3, $4, $5)`, [token, expiresAt, false, userId, new Date()]);
+            this.logger.log(`Successfully created magic link with token: ${token} for user ID: ${userId}`);
+            const verifyQuery = await this.magicLinkRepository.query(`SELECT * FROM magic_links WHERE token = $1`, [token]);
+            if (verifyQuery.length > 0) {
+                const isUsed = verifyQuery[0].used;
+                this.logger.log(`Token created verification: token=${token}, used=${isUsed}`);
+                if (isUsed) {
+                    this.logger.error(`CRITICAL ERROR: Token was created but immediately marked as used: ${token}`);
+                }
+            }
+            else {
+                this.logger.error(`CRITICAL ERROR: Token was not found after creation: ${token}`);
+            }
+            return token;
+        }
+        catch (error) {
+            this.logger.error(`Error creating magic link: ${error.message}`);
+            throw error;
+        }
     }
     async sendMagicLink(email, userId) {
-        const token = await this.createMagicLink(email, userId);
+        if (!email) {
+            throw new Error("Email is required to send a magic link");
+        }
+        if (!userId) {
+            const user = await this.userRepository.findOne({ where: { email } });
+            if (!user) {
+                throw new Error(`No user found with email ${email}`);
+            }
+            userId = user.id;
+        }
+        try {
+            const deleteQuery = `DELETE FROM magic_links WHERE "userId" = $1`;
+            const deleteParams = [userId];
+            const deleteResult = await this.magicLinkRepository.query(deleteQuery, deleteParams);
+            this.logger.log(`Deleted ${deleteResult.length || 0} existing tokens for user ${userId}`);
+        }
+        catch (error) {
+            this.logger.error(`Error deleting existing tokens: ${error.message}`);
+        }
+        const timestamp = Date.now();
+        const token = await this.createMagicLink(email, userId, timestamp);
         const frontendUrl = this.configService.get("FRONTEND_URL");
         const magicLinkUrl = `${frontendUrl}/auth/verify?token=${token}`;
-        this.logger.log(`Generated magic link for ${email} with token: ${token}`);
+        this.logger.log(`Generated magic link for ${email} with token: ${token} (user ID: ${userId})`);
         const msg = {
             to: email,
-            from: this.configService.get("SMTP_FROM") || "no-reply@ghostpay.com",
-            subject: "Your GhostPay Magic Link",
+            from: "kareem@ghostsavvy.com",
+            subject: "Your Undr Magic Link",
             html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Welcome to GhostPay</h2>
-          <p>Click the button below to sign in to your account. This link will expire in 15 minutes.</p>
+          <h2>Welcome to Undr</h2>
+          <p>Click the button below to sign in to your account. This link will expire in 30 minutes.</p>
           <a href="${magicLinkUrl}" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">Sign In</a>
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
           <p>${magicLinkUrl}</p>
-          <p>For security reasons, this link will expire in 15 minutes and can only be used once.</p>
+          <p><strong>Important:</strong> This link is for single use only and will expire after 30 minutes.</p>
+          <p>If you don't use this link and need to sign in later, you'll need to request a new link.</p>
           <p>If you didn't request this link, you can safely ignore this email.</p>
+          <p>Thank you for using Undr!</p>
         </div>
       `,
         };
@@ -112,22 +138,59 @@ let MagicLinkService = MagicLinkService_1 = class MagicLinkService {
         }
     }
     async verifyToken(token) {
-        const magicLink = await this.magicLinkRepository.findOne({
-            where: { token },
-            relations: ["user"],
-        });
-        if (!magicLink) {
-            throw new common_1.UnauthorizedException("Invalid or expired magic link");
+        if (!token) {
+            throw new common_1.UnauthorizedException("Token is required for verification");
         }
-        if (new Date() > magicLink.expiresAt) {
-            throw new common_1.UnauthorizedException("Magic link has expired");
+        const normalizedToken = token.toLowerCase();
+        this.logger.log(`Verifying token: ${normalizedToken}`);
+        const queryRunner = this.magicLinkRepository.manager.connection.createQueryRunner();
+        try {
+            await queryRunner.connect();
+            await queryRunner.startTransaction();
+            const tokenExists = await queryRunner.manager.query(`SELECT id, token, "expiresAt", used, "userId", "createdAt" 
+         FROM magic_links 
+         WHERE token = $1`, [normalizedToken]);
+            this.logger.log(`Token existence check returned ${tokenExists.length} results`);
+            if (tokenExists.length === 0) {
+                throw new common_1.UnauthorizedException("Invalid or expired token");
+            }
+            const foundToken = tokenExists[0];
+            this.logger.log(`Token details - ID: ${foundToken.id}, created: ${foundToken.createdAt}, used: ${foundToken.used}`);
+            if (foundToken.used) {
+                this.logger.warn(`Token found but already used: ${normalizedToken}`);
+                await queryRunner.rollbackTransaction();
+                throw new common_1.UnauthorizedException("This magic link has already been used. Please request a new one.");
+            }
+            const expirationDate = new Date(foundToken.expiresAt);
+            if (expirationDate < new Date()) {
+                this.logger.warn(`Token is expired: ${normalizedToken}`);
+                await queryRunner.rollbackTransaction();
+                throw new common_1.UnauthorizedException("This magic link has expired. Please request a new one.");
+            }
+            await queryRunner.manager.query(`UPDATE magic_links SET used = true WHERE id = $1`, [foundToken.id]);
+            await queryRunner.commitTransaction();
+            return foundToken.userId;
         }
-        if (magicLink.used) {
-            throw new common_1.UnauthorizedException("Magic link has already been used");
+        catch (error) {
+            if (queryRunner.isTransactionActive) {
+                try {
+                    await queryRunner.rollbackTransaction();
+                }
+                catch (rollbackError) {
+                    this.logger.error(`Error rolling back transaction: ${rollbackError.message}`);
+                }
+            }
+            this.logger.error(`Error verifying token: ${error.message}`);
+            if (error instanceof common_1.UnauthorizedException) {
+                throw error;
+            }
+            throw new common_1.UnauthorizedException("Failed to verify magic link. Please try again.");
         }
-        magicLink.used = true;
-        await this.magicLinkRepository.save(magicLink);
-        return magicLink.userId;
+        finally {
+            if (!queryRunner.isReleased) {
+                await queryRunner.release();
+            }
+        }
     }
 };
 MagicLinkService = MagicLinkService_1 = __decorate([

@@ -13,7 +13,8 @@ import {
   EscrowMilestone,
   MilestoneStatus,
 } from "../../entities/escrow.entity";
-import { Payment, PaymentStatus } from "../../entities/payment.entity";
+import { Payment } from "../../entities/payment.entity";
+import { PaymentStatus } from "../../entities/common.enums";
 import { User } from "../../entities/user.entity";
 import { Wallet } from "../../entities/wallet.entity";
 import {

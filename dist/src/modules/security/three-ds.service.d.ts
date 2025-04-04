@@ -1,6 +1,7 @@
 import { ConfigService } from "@nestjs/config";
 import { Repository } from "typeorm";
-import { Payment, ThreeDsStatus } from "../../entities/payment.entity";
+import { Payment } from "../../entities/payment.entity";
+import { ThreeDsStatus } from "../../entities/common.enums";
 import Stripe from "stripe";
 export declare class ThreeDsService {
     private paymentRepository;

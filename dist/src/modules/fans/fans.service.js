@@ -21,6 +21,7 @@ const payments_service_1 = require("../payments/payments.service");
 const user_entity_1 = require("../../entities/user.entity");
 const wallet_entity_1 = require("../../entities/wallet.entity");
 const payment_entity_1 = require("../../entities/payment.entity");
+const common_enums_1 = require("../../entities/common.enums");
 const deposit_entity_1 = require("../../entities/deposit.entity");
 const alias_service_1 = require("../common/services/alias.service");
 let FansService = FansService_1 = class FansService {
@@ -50,15 +51,15 @@ let FansService = FansService_1 = class FansService {
         });
         await this.depositRepository.save(deposit);
         let paymentDetails;
-        if (paymentMethod === payment_entity_1.PaymentMethod.CREDIT_CARD) {
+        if (paymentMethod === common_enums_1.PaymentMethod.CREDIT_CARD) {
             paymentDetails = await this.paymentsService.createStripePaymentIntent(amount);
             await this.depositRepository.update(deposit.id, {
                 transactionId: paymentDetails.id,
             });
         }
-        else if (paymentMethod === payment_entity_1.PaymentMethod.CRYPTO_BTC ||
-            paymentMethod === payment_entity_1.PaymentMethod.CRYPTO_ETH ||
-            paymentMethod === payment_entity_1.PaymentMethod.CRYPTO_USDT) {
+        else if (paymentMethod === common_enums_1.PaymentMethod.CRYPTO_BTC ||
+            paymentMethod === common_enums_1.PaymentMethod.CRYPTO_ETH ||
+            paymentMethod === common_enums_1.PaymentMethod.CRYPTO_USDT) {
             paymentDetails = await this.paymentsService.createCryptoPayment(amount, paymentMethod);
         }
         else {
@@ -157,8 +158,8 @@ let FansService = FansService_1 = class FansService {
         }
         const payment = this.paymentRepository.create({
             amount,
-            status: payment_entity_1.PaymentStatus.COMPLETED,
-            method: payment_entity_1.PaymentMethod.WALLET,
+            status: common_enums_1.PaymentStatus.COMPLETED,
+            method: common_enums_1.PaymentMethod.WALLET,
             description: description || "Payment to creator",
             fromUserId: sender.id,
             toUserId: recipient.id,
@@ -166,7 +167,7 @@ let FansService = FansService_1 = class FansService {
             toAlias: recipientAlias,
             metadata: {
                 description: description,
-                method: payment_entity_1.PaymentMethod.WALLET,
+                method: common_enums_1.PaymentMethod.WALLET,
             },
         });
         await this.paymentRepository.save(payment);
@@ -248,11 +249,11 @@ let FansService = FansService_1 = class FansService {
         if (payDto.description) {
             metadata.description = payDto.description;
         }
-        metadata.method = payment_entity_1.PaymentMethod.WALLET;
+        metadata.method = common_enums_1.PaymentMethod.WALLET;
         const payment = this.paymentRepository.create({
             amount: payDto.amount,
-            status: payment_entity_1.PaymentStatus.COMPLETED,
-            method: payment_entity_1.PaymentMethod.WALLET,
+            status: common_enums_1.PaymentStatus.COMPLETED,
+            method: common_enums_1.PaymentMethod.WALLET,
             description: payDto.description || "Payment",
             fromUserId: sender.id,
             toUserId: recipient.id,

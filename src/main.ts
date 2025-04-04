@@ -5,6 +5,11 @@ import { AppModule } from "./app.module";
 import * as bodyParser from "body-parser";
 import { setEncryptionService } from "./modules/common/transformers/encrypted-column.factory";
 import { EncryptionService } from "./modules/security/encryption.service";
+import { IoAdapter } from "@nestjs/platform-socket.io";
+import * as dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -16,6 +21,10 @@ async function bootstrap() {
   const encryptionService = app.get(EncryptionService);
   setEncryptionService(encryptionService);
   console.log("Encryption service initialized successfully");
+
+  // Configure WebSockets
+  app.useWebSocketAdapter(new IoAdapter(app));
+  console.log("WebSocket adapter configured successfully");
 
   // Configure body parsers for different routes
   // Use raw bodyParser for Stripe webhook route
@@ -60,16 +69,38 @@ async function bootstrap() {
 
   // CORS setup - ensure frontend URL is correctly configured
   const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-  const adminUrl = process.env.ADMIN_URL || "http://localhost:3002";
+  const frontendDevUrl = "http://localhost:3001";
+  const frontendAltUrl = "http://127.0.0.1:3000"; // Sometimes used by browsers
+  const frontendAltDevUrl = "http://127.0.0.1:3001"; // Sometimes used by browsers
+  const adminUrl = process.env.ADMIN_URL || "http://localhost:3005";
+
+  // For Railway deployment - add production URLs to CORS whitelist
+  const productionUrls = process.env.PRODUCTION_URLS
+    ? process.env.PRODUCTION_URLS.split(",")
+    : [];
 
   app.enableCors({
-    origin: [frontendUrl, adminUrl],
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    origin: [
+      frontendUrl,
+      frontendDevUrl,
+      frontendAltUrl,
+      frontendAltDevUrl,
+      adminUrl,
+      ...productionUrls,
+    ],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "stripe-signature"],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
-  console.log(`CORS enabled for origins: ${frontendUrl}, ${adminUrl}`);
+  console.log(
+    `CORS enabled for origins: ${frontendUrl}, ${frontendDevUrl}, ${frontendAltUrl}, ${frontendAltDevUrl}, ${adminUrl}, ${productionUrls.join(
+      ", "
+    )}`
+  );
 
   // Set security headers for all responses
   app.use((req, res, next) => {
@@ -84,8 +115,6 @@ async function bootstrap() {
     res.setHeader("X-XSS-Protection", "1; mode=block");
     // Prevent clickjacking
     res.setHeader("X-Frame-Options", "DENY");
-    // Content Security Policy
-    res.setHeader("Content-Security-Policy", "default-src 'self'");
     // Referrer policy
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     next();
@@ -93,7 +122,7 @@ async function bootstrap() {
 
   // Swagger documentation setup
   const config = new DocumentBuilder()
-    .setTitle("GhostPay API")
+    .setTitle("Undr API")
     .setDescription("Anonymous payment system for adult creators and fans")
     .setVersion("1.0")
     .addBearerAuth()
@@ -102,8 +131,7 @@ async function bootstrap() {
   SwaggerModule.setup("api", app, document);
 
   // Start the application
-  //const port = process.env.PORT || 3001;
-  const port = 3001;
+  const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`Application is running on: ${await app.getUrl()}`);
 }

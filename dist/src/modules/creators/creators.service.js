@@ -18,6 +18,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../../entities/user.entity");
 const payment_entity_1 = require("../../entities/payment.entity");
+const common_enums_1 = require("../../entities/common.enums");
 const config_1 = require("@nestjs/config");
 const alias_service_1 = require("../common/services/alias.service");
 let CreatorsService = class CreatorsService {
@@ -42,7 +43,7 @@ let CreatorsService = class CreatorsService {
         const payments = await this.paymentRepository.find({
             where: {
                 toUserId: creatorId,
-                status: payment_entity_1.PaymentStatus.COMPLETED,
+                status: common_enums_1.PaymentStatus.COMPLETED,
             },
         });
         const totalEarnings = payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
@@ -69,7 +70,7 @@ let CreatorsService = class CreatorsService {
         const payments = await this.paymentRepository.find({
             where: {
                 toUserId: creatorId,
-                status: payment_entity_1.PaymentStatus.COMPLETED,
+                status: common_enums_1.PaymentStatus.COMPLETED,
             },
             order: { createdAt: "DESC" },
         });

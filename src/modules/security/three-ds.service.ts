@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Payment, ThreeDsStatus } from "../../entities/payment.entity";
+import { Payment } from "../../entities/payment.entity";
+import { ThreeDsStatus } from "../../entities/common.enums";
 import Stripe from "stripe";
 
 @Injectable()

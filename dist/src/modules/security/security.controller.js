@@ -17,7 +17,7 @@ exports.SecurityController = void 0;
 const common_1 = require("@nestjs/common");
 const risk_assessment_service_1 = require("./risk-assessment.service");
 const three_ds_service_1 = require("./three-ds.service");
-const dispute_service_1 = require("./dispute.service");
+const dispute_service_1 = require("../dispute/dispute.service");
 const escrow_service_1 = require("./escrow.service");
 const escrow_dto_1 = require("../../dtos/escrow.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
@@ -58,42 +58,75 @@ let SecurityController = SecurityController_1 = class SecurityController {
         return this.riskAssessmentService.reviewRiskAssessment(id, req.user.id, approved, notes);
     }
     async createDispute(body, req) {
-        const { paymentId, reason, description, evidenceFiles } = body;
-        return this.disputeService.createDispute({
-            paymentId,
-            filedByUserId: req.user.id,
-            reason,
-            description,
-            evidenceFiles,
-        });
+        try {
+            const { escrowId, reason, details } = body;
+            const { userId } = req.user;
+            return await this.disputeService.createDispute({
+                escrowId,
+                createdById: userId,
+                reason,
+                details: details || {},
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error creating dispute: ${error.message}`, error.stack);
+            throw error;
+        }
     }
     async addDisputeEvidence(id, body, req) {
-        const { description, files } = body;
-        return this.disputeService.addEvidence(id, req.user.id, {
-            description,
-            files,
-        });
+        try {
+            const { type, description, files } = body;
+            const { userId } = req.user;
+            return await this.disputeService.submitEvidence({
+                disputeId: id,
+                submittedById: userId,
+                type,
+                description,
+                files: files || [],
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error adding dispute evidence: ${error.message}`, error.stack);
+            throw error;
+        }
     }
     async resolveDispute(id, body, req) {
-        const { resolveForCustomer, resolutionNotes } = body;
-        return this.disputeService.resolveDispute({
-            disputeId: id,
-            resolvedByUserId: req.user.id,
-            resolveForCustomer,
-            resolutionNotes,
-        });
+        try {
+            const { resolution, buyerAmount, sellerAmount, details } = body;
+            const { userId } = req.user;
+            return await this.disputeService.resolveDisputeByAdmin({
+                disputeId: id,
+                reviewedById: userId,
+                resolution,
+                buyerAmount,
+                sellerAmount,
+                notes: (details === null || details === void 0 ? void 0 : details.notes) || "",
+            });
+        }
+        catch (error) {
+            this.logger.error(`Error resolving dispute: ${error.message}`, error.stack);
+            throw error;
+        }
     }
     async getDisputes(query, req) {
-        const { status, limit, offset } = query;
-        return this.disputeService.getDisputes({
-            status,
-            userId: req.user.id,
-            limit: limit ? parseInt(limit) : undefined,
-            offset: offset ? parseInt(offset) : undefined,
-        });
+        try {
+            const { status } = query;
+            const { userId } = req.user;
+            return await this.disputeService.getDisputesForUser(userId, status);
+        }
+        catch (error) {
+            this.logger.error(`Error getting disputes: ${error.message}`, error.stack);
+            throw error;
+        }
     }
-    async getDisputeById(id) {
-        return this.disputeService.getDisputeById(id);
+    async getDisputeById(id, req) {
+        try {
+            return await this.disputeService.getDisputeDetails(id, req.user.userId);
+        }
+        catch (error) {
+            this.logger.error(`Error getting dispute: ${error.message}`, error.stack);
+            throw error;
+        }
     }
     async createEscrow(body, req) {
         try {
@@ -212,8 +245,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SecurityController.prototype, "reviewRiskAssessment", null);
 __decorate([
-    (0, swagger_1.ApiOperation)({ summary: "Create a dispute" }),
     (0, common_1.Post)("disputes"),
+    (0, swagger_1.ApiOperation)({ summary: "Create a dispute for an escrow" }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -221,8 +254,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SecurityController.prototype, "createDispute", null);
 __decorate([
-    (0, swagger_1.ApiOperation)({ summary: "Add evidence to a dispute" }),
     (0, common_1.Post)("disputes/:id/evidence"),
+    (0, swagger_1.ApiOperation)({ summary: "Add evidence to a dispute" }),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
@@ -231,8 +264,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SecurityController.prototype, "addDisputeEvidence", null);
 __decorate([
+    (0, common_1.Post)("disputes/:id/resolve"),
     (0, swagger_1.ApiOperation)({ summary: "Resolve a dispute" }),
-    (0, common_1.Patch)("disputes/:id/resolve"),
     __param(0, (0, common_1.Param)("id")),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
@@ -241,8 +274,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SecurityController.prototype, "resolveDispute", null);
 __decorate([
-    (0, swagger_1.ApiOperation)({ summary: "Get disputes" }),
     (0, common_1.Get)("disputes"),
+    (0, swagger_1.ApiOperation)({ summary: "Get disputes" }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -250,11 +283,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SecurityController.prototype, "getDisputes", null);
 __decorate([
-    (0, swagger_1.ApiOperation)({ summary: "Get a dispute by ID" }),
     (0, common_1.Get)("disputes/:id"),
+    (0, swagger_1.ApiOperation)({ summary: "Get dispute by ID" }),
     __param(0, (0, common_1.Param)("id")),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SecurityController.prototype, "getDisputeById", null);
 __decorate([

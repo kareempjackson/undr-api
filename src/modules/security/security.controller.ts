@@ -15,9 +15,12 @@ import {
 } from "@nestjs/common";
 import { RiskAssessmentService } from "./risk-assessment.service";
 import { ThreeDsService } from "./three-ds.service";
-import { DisputeService } from "./dispute.service";
+import { DisputeService } from "../dispute/dispute.service";
 import { EscrowService } from "./escrow.service";
-import { DisputeStatus, DisputeReason } from "../../entities/dispute.entity";
+import {
+  DisputeStatus,
+  DisputeResolution,
+} from "../../entities/dispute.entity";
 import { EscrowStatus, MilestoneStatus } from "../../entities/escrow.entity";
 import { DeliveryProofSubmitDTO, ReviewProofDTO } from "../../dtos/escrow.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -110,61 +113,105 @@ export class SecurityController {
   }
 
   // Dispute Endpoints
-  @ApiOperation({ summary: "Create a dispute" })
   @Post("disputes")
+  @ApiOperation({ summary: "Create a dispute for an escrow" })
   async createDispute(@Body() body, @Request() req) {
-    const { paymentId, reason, description, evidenceFiles } = body;
-    return this.disputeService.createDispute({
-      paymentId,
-      filedByUserId: req.user.id,
-      reason,
-      description,
-      evidenceFiles,
-    });
+    try {
+      const { escrowId, reason, details } = body;
+      const { userId } = req.user;
+
+      return await this.disputeService.createDispute({
+        escrowId,
+        createdById: userId,
+        reason,
+        details: details || {},
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error creating dispute: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
   }
 
-  @ApiOperation({ summary: "Add evidence to a dispute" })
   @Post("disputes/:id/evidence")
+  @ApiOperation({ summary: "Add evidence to a dispute" })
   async addDisputeEvidence(
     @Param("id") id: string,
     @Body() body,
     @Request() req
   ) {
-    const { description, files } = body;
-    return this.disputeService.addEvidence(id, req.user.id, {
-      description,
-      files,
-    });
+    try {
+      const { type, description, files } = body;
+      const { userId } = req.user;
+
+      return await this.disputeService.submitEvidence({
+        disputeId: id,
+        submittedById: userId,
+        type,
+        description,
+        files: files || [],
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error adding dispute evidence: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
   }
 
+  @Post("disputes/:id/resolve")
   @ApiOperation({ summary: "Resolve a dispute" })
-  @Patch("disputes/:id/resolve")
   async resolveDispute(@Param("id") id: string, @Body() body, @Request() req) {
-    const { resolveForCustomer, resolutionNotes } = body;
-    return this.disputeService.resolveDispute({
-      disputeId: id,
-      resolvedByUserId: req.user.id,
-      resolveForCustomer,
-      resolutionNotes,
-    });
+    try {
+      const { resolution, buyerAmount, sellerAmount, details } = body;
+      const { userId } = req.user;
+
+      return await this.disputeService.resolveDisputeByAdmin({
+        disputeId: id,
+        reviewedById: userId,
+        resolution,
+        buyerAmount,
+        sellerAmount,
+        notes: details?.notes || "",
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error resolving dispute: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
   }
 
-  @ApiOperation({ summary: "Get disputes" })
   @Get("disputes")
+  @ApiOperation({ summary: "Get disputes" })
   async getDisputes(@Query() query, @Request() req) {
-    const { status, limit, offset } = query;
-    return this.disputeService.getDisputes({
-      status,
-      userId: req.user.id,
-      limit: limit ? parseInt(limit) : undefined,
-      offset: offset ? parseInt(offset) : undefined,
-    });
+    try {
+      const { status } = query;
+      const { userId } = req.user;
+
+      return await this.disputeService.getDisputesForUser(userId, status);
+    } catch (error) {
+      this.logger.error(
+        `Error getting disputes: ${error.message}`,
+        error.stack
+      );
+      throw error;
+    }
   }
 
-  @ApiOperation({ summary: "Get a dispute by ID" })
   @Get("disputes/:id")
-  async getDisputeById(@Param("id") id: string) {
-    return this.disputeService.getDisputeById(id);
+  @ApiOperation({ summary: "Get dispute by ID" })
+  async getDisputeById(@Param("id") id: string, @Request() req) {
+    try {
+      return await this.disputeService.getDisputeDetails(id, req.user.userId);
+    } catch (error) {
+      this.logger.error(`Error getting dispute: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Escrow Endpoints

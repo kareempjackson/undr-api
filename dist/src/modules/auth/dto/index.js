@@ -23,27 +23,53 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VerifyMagicLinkDto = exports.LoginDto = void 0;
+exports.CheckUserDto = exports.VerifyMagicLinkDto = exports.LoginDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const user_entity_1 = require("../../../entities/user.entity");
 class LoginDto {
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'user@example.com', description: 'User email address' }),
+    (0, swagger_1.ApiProperty)({
+        example: "user@example.com",
+        description: "User email address",
+    }),
     (0, class_validator_1.IsEmail)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], LoginDto.prototype, "email", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: "User's role",
+        example: "FAN",
+        enum: user_entity_1.UserRole,
+        required: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(user_entity_1.UserRole),
+    __metadata("design:type", String)
+], LoginDto.prototype, "role", void 0);
 exports.LoginDto = LoginDto;
 class VerifyMagicLinkDto {
 }
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Magic link token received in email' }),
+    (0, swagger_1.ApiProperty)({ description: "Magic link token received in email" }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], VerifyMagicLinkDto.prototype, "token", void 0);
 exports.VerifyMagicLinkDto = VerifyMagicLinkDto;
-__exportStar(require("./login.dto"), exports);
+class CheckUserDto {
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: "user@example.com",
+        description: "User email address",
+    }),
+    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CheckUserDto.prototype, "email", void 0);
+exports.CheckUserDto = CheckUserDto;
 __exportStar(require("./verify-magic-link.dto"), exports);
 //# sourceMappingURL=index.js.map

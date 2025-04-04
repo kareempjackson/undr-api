@@ -18,6 +18,22 @@ This is the backend service for GhostPay - Anonymous payments for adult creators
 - Automatic and manual escrow release
 - Transaction logging for audit purposes
 
+### Dispute Resolution System
+
+- Comprehensive dispute management for escrow transactions
+- Evidence submission and deadline enforcement
+- Built-in messaging system for dispute participants
+- Multiple resolution options (full refund, full payment, split payment)
+- Admin review and resolution capabilities
+
+### Notification System
+
+- Multi-channel notifications (in-app, email, SMS, push)
+- User-configurable notification preferences
+- Templated email notifications with SendGrid integration
+- Real-time notification delivery
+- Unread notification tracking and management
+
 ## Docker Setup
 
 The backend service is fully dockerized for easy setup and deployment.
@@ -137,10 +153,45 @@ To run escrow-specific tests:
 npm test src/modules/security/escrow.e2e.spec.ts
 ```
 
+### Dispute System Tests
+
+The dispute resolution system includes end-to-end tests that verify:
+
+- Dispute creation for escrow transactions
+- Evidence submission by both parties
+- Message exchange during the dispute process
+- Resolution proposal and acceptance
+- Admin resolution capabilities
+
+To run dispute-specific tests:
+
+```bash
+npm test src/modules/dispute/dispute.e2e.spec.ts
+```
+
+### Notification System Tests
+
+The notification system includes tests that verify:
+
+- Notification creation and delivery
+- User preference management
+- Email template rendering
+- Notification filtering and pagination
+- Read/unread status management
+
+To run notification-specific tests:
+
+```bash
+npm test src/modules/notification/notification.spec.ts
+```
+
 ## Documentation
 
 Detailed documentation is available in the `docs` directory:
 
-- [Escrow API Reference](docs/escrow-api-reference.md)
+- [Escrow API Reference](docs/escrow-api-reference.md) (includes Dispute API endpoints)
 - [Escrow System Deployment Guide](docs/escrow-system-deployment.md)
 - [Escrow System Implementation Summary](docs/escrow-system-implementation-summary.md)
+- [Dispute System Design](docs/dispute-system-design.md)
+- [Escrow Testing Strategy](docs/escrow-testing-strategy.md)
+- [Notification System Overview](docs/notification-system-overview.md)

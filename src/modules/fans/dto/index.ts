@@ -7,7 +7,7 @@ import {
   Min,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
-import { PaymentMethod } from "../../../entities/payment.entity";
+import { PaymentMethod } from "../../../entities/common.enums";
 
 export class DepositDto {
   @ApiProperty({ example: 100, description: "Amount to deposit" })

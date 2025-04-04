@@ -9,17 +9,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Withdrawal = exports.WithdrawalStatus = void 0;
+exports.Withdrawal = void 0;
 const typeorm_1 = require("typeorm");
 const user_entity_1 = require("./user.entity");
-const payment_entity_1 = require("./payment.entity");
-var WithdrawalStatus;
-(function (WithdrawalStatus) {
-    WithdrawalStatus["PENDING"] = "PENDING";
-    WithdrawalStatus["COMPLETED"] = "COMPLETED";
-    WithdrawalStatus["FAILED"] = "FAILED";
-    WithdrawalStatus["REJECTED"] = "REJECTED";
-})(WithdrawalStatus = exports.WithdrawalStatus || (exports.WithdrawalStatus = {}));
+const common_enums_1 = require("./common.enums");
 let Withdrawal = class Withdrawal {
 };
 __decorate([
@@ -33,15 +26,15 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",
-        enum: WithdrawalStatus,
-        default: WithdrawalStatus.PENDING,
+        enum: common_enums_1.WithdrawalStatus,
+        default: common_enums_1.WithdrawalStatus.PENDING,
     }),
     __metadata("design:type", String)
 ], Withdrawal.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",
-        enum: payment_entity_1.PaymentMethod,
+        enum: common_enums_1.PaymentMethod,
     }),
     __metadata("design:type", String)
 ], Withdrawal.prototype, "method", void 0);

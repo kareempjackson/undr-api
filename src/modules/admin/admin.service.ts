@@ -12,7 +12,8 @@ import {
   MoreThanOrEqual,
 } from "typeorm";
 import { User, UserRole, UserStatus } from "../../entities/user.entity";
-import { Payment, PaymentStatus } from "../../entities/payment.entity";
+import { Payment } from "../../entities/payment.entity";
+import { PaymentStatus } from "../../entities/common.enums";
 import { format, subDays, subMonths } from "date-fns";
 
 @Injectable()

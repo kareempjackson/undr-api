@@ -18,6 +18,7 @@ const config_1 = require("@nestjs/config");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const payment_entity_1 = require("../../entities/payment.entity");
+const common_enums_1 = require("../../entities/common.enums");
 const stripe_1 = require("stripe");
 let ThreeDsService = class ThreeDsService {
     constructor(paymentRepository, configService) {
@@ -74,18 +75,18 @@ let ThreeDsService = class ThreeDsService {
     async check3dsConfirmationStatus(paymentIntentId) {
         try {
             const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
-            let threeDsStatus = payment_entity_1.ThreeDsStatus.NOT_REQUIRED;
+            let threeDsStatus = common_enums_1.ThreeDsStatus.NOT_REQUIRED;
             if (paymentIntent.status === "succeeded") {
-                threeDsStatus = payment_entity_1.ThreeDsStatus.AUTHENTICATED;
+                threeDsStatus = common_enums_1.ThreeDsStatus.AUTHENTICATED;
             }
             else if (paymentIntent.status === "requires_payment_method") {
-                threeDsStatus = payment_entity_1.ThreeDsStatus.FAILED;
+                threeDsStatus = common_enums_1.ThreeDsStatus.FAILED;
             }
             else if (paymentIntent.status === "requires_action") {
-                threeDsStatus = payment_entity_1.ThreeDsStatus.REQUIRED;
+                threeDsStatus = common_enums_1.ThreeDsStatus.REQUIRED;
             }
             else if (paymentIntent.status === "canceled") {
-                threeDsStatus = payment_entity_1.ThreeDsStatus.REJECTED;
+                threeDsStatus = common_enums_1.ThreeDsStatus.REJECTED;
             }
             return {
                 status: paymentIntent.status,

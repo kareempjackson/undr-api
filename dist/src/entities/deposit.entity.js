@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Deposit = exports.DepositStatus = void 0;
 const typeorm_1 = require("typeorm");
 const user_entity_1 = require("./user.entity");
-const payment_entity_1 = require("./payment.entity");
+const common_enums_1 = require("./common.enums");
 var DepositStatus;
 (function (DepositStatus) {
     DepositStatus["PENDING"] = "PENDING";
@@ -40,7 +40,7 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",
-        enum: payment_entity_1.PaymentMethod,
+        enum: common_enums_1.PaymentMethod,
     }),
     __metadata("design:type", String)
 ], Deposit.prototype, "method", void 0);

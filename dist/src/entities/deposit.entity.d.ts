@@ -1,5 +1,5 @@
 import { User } from "./user.entity";
-import { PaymentMethod } from "./payment.entity";
+import { PaymentMethod } from "./common.enums";
 export declare enum DepositStatus {
     PENDING = "PENDING",
     COMPLETED = "COMPLETED",

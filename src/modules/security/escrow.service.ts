@@ -13,11 +13,8 @@ import {
   EscrowMilestone,
   MilestoneStatus,
 } from "../../entities/escrow.entity";
-import {
-  Payment,
-  PaymentStatus,
-  PaymentMethod,
-} from "../../entities/payment.entity";
+import { Payment } from "../../entities/payment.entity";
+import { PaymentStatus, PaymentMethod } from "../../entities/common.enums";
 import { User } from "../../entities/user.entity";
 import { Wallet } from "../../entities/wallet.entity";
 import {
@@ -30,6 +27,9 @@ import {
   TransactionType,
 } from "../../entities/transaction-log.entity";
 import { DeliveryProofSubmitDTO } from "../../dtos/escrow.dto";
+import { NotificationService } from "../notification/notification.service";
+import { NotificationType } from "../../entities/notification.entity";
+import { BigNumber } from "bignumber.js";
 
 interface CreateEscrowParams {
   title: string;
@@ -73,7 +73,8 @@ export class EscrowService {
     private deliveryProofRepository: Repository<DeliveryProof>,
     @InjectRepository(TransactionLog)
     private transactionLogRepository: Repository<TransactionLog>,
-    private dataSource: DataSource
+    private dataSource: DataSource,
+    private notificationService: NotificationService
   ) {}
 
   /**
@@ -129,72 +130,131 @@ export class EscrowService {
       );
     }
 
-    // Create escrow
-    const escrow = new Escrow();
-    escrow.title = title;
-    escrow.description = description;
-    escrow.totalAmount = totalAmount;
-    escrow.buyerId = buyerId;
-    escrow.sellerId = sellerId;
-    escrow.status = EscrowStatus.PENDING;
-    escrow.expiresAt = new Date(
-      Date.now() + expirationDays * 24 * 60 * 60 * 1000
-    );
+    // Create escrow entity
+    const escrow = this.escrowRepository.create({
+      title,
+      description,
+      totalAmount,
+      buyerId,
+      sellerId,
+      expiresAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000),
+      status: EscrowStatus.PENDING,
+      terms,
+      evidenceFiles: documents,
+    });
 
-    // Set automatic release date (3 days from now)
-    const scheduleReleaseAt = new Date();
-    scheduleReleaseAt.setDate(scheduleReleaseAt.getDate() + 3);
-    escrow.scheduleReleaseAt = scheduleReleaseAt;
+    // Execute transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (terms) {
-      escrow.terms = terms;
-    }
-
-    // Handle additional agreement documents
-    if (documents && documents.length > 0) {
-      escrow.evidenceFiles = documents;
-    }
-
-    // Use a transaction to ensure all operations succeed or fail together
-    return this.dataSource.transaction(async (manager) => {
+    try {
       // Save escrow first to get ID
-      const savedEscrow = await manager.save(Escrow, escrow);
+      const savedEscrow = await queryRunner.manager.save(escrow);
 
-      // Create milestones
-      const escrowMilestones = milestones.map((milestone) => {
-        const escrowMilestone = new EscrowMilestone();
-        escrowMilestone.escrowId = savedEscrow.id;
-        escrowMilestone.amount = milestone.amount;
-        escrowMilestone.description = milestone.description;
-        escrowMilestone.sequence = milestone.sequence;
-        escrowMilestone.status = MilestoneStatus.PENDING;
-        return escrowMilestone;
+      // Create milestone entities
+      const milestoneEntities = milestones.map((m) => {
+        return this.milestoneRepository.create({
+          escrowId: savedEscrow.id,
+          amount: m.amount,
+          description: m.description,
+          sequence: m.sequence,
+          status: MilestoneStatus.PENDING,
+        });
       });
 
-      await manager.save(EscrowMilestone, escrowMilestones);
+      // Save milestones
+      await queryRunner.manager.save(milestoneEntities);
 
-      // Log the transaction
+      // Create transaction log
       await this.logTransaction(
-        manager,
+        queryRunner.manager,
         TransactionType.ESCROW_CREATED,
         buyerId,
         savedEscrow.id,
-        "Escrow",
+        "escrow",
         {
-          escrowId: savedEscrow.id,
-          title,
-          totalAmount,
+          title: savedEscrow.title,
+          totalAmount: savedEscrow.totalAmount,
           sellerId,
         },
         requestMetadata
       );
 
-      // Return the complete escrow with relationships
-      return manager.findOne(Escrow, {
+      await queryRunner.commitTransaction();
+
+      // Load the complete escrow with relationships
+      const completeEscrow = await this.escrowRepository.findOne({
         where: { id: savedEscrow.id },
-        relations: ["milestones"],
+        relations: ["milestones", "buyer", "seller"],
       });
-    });
+
+      // Send notifications to buyer and seller
+      this.sendEscrowCreatedNotifications(completeEscrow, buyer, seller);
+
+      return completeEscrow;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error creating escrow: ${error.message}`, error.stack);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Send notifications to buyer and seller when an escrow is created
+   */
+  private async sendEscrowCreatedNotifications(
+    escrow: Escrow,
+    buyer: User,
+    seller: User
+  ): Promise<void> {
+    try {
+      // Notification for buyer
+      await this.notificationService.createNotification({
+        userId: buyer.id,
+        type: NotificationType.ESCROW_CREATED,
+        title: "New Escrow Created",
+        message: `You've created a new escrow agreement: "${
+          escrow.title
+        }" with ${seller.name || seller.email}`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+          otherParty: {
+            id: seller.id,
+            name: seller.name,
+          },
+        },
+      });
+
+      // Notification for seller
+      await this.notificationService.createNotification({
+        userId: seller.id,
+        type: NotificationType.ESCROW_CREATED,
+        title: "New Escrow Agreement",
+        message: `${
+          buyer.name || buyer.email
+        } has created a new escrow agreement with you: "${escrow.title}"`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+          otherParty: {
+            id: buyer.id,
+            name: buyer.name,
+          },
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the escrow creation
+      this.logger.error(
+        `Error sending escrow creation notifications: ${error.message}`,
+        error.stack
+      );
+    }
   }
 
   /**
@@ -273,12 +333,54 @@ export class EscrowService {
         requestMetadata
       );
 
+      // Send notifications to buyer and seller about funding
+      await this.sendEscrowFundedNotifications(updatedEscrow);
+
       return updatedEscrow;
     });
   }
 
   /**
-   * Submit proof of delivery for an escrow
+   * Send notifications to buyer and seller when an escrow is funded
+   */
+  private async sendEscrowFundedNotifications(escrow: Escrow): Promise<void> {
+    try {
+      // Notification for buyer
+      await this.notificationService.createNotification({
+        userId: escrow.buyerId,
+        type: NotificationType.ESCROW_FUNDED,
+        title: "Escrow Successfully Funded",
+        message: `You've successfully funded the escrow "${escrow.title}" with $${escrow.totalAmount}`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+        },
+      });
+
+      // Notification for seller
+      await this.notificationService.createNotification({
+        userId: escrow.sellerId,
+        type: NotificationType.ESCROW_FUNDED,
+        title: "Escrow Funded",
+        message: `The escrow "${escrow.title}" has been funded with $${escrow.totalAmount}. You can now begin work.`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the escrow funding process
+      this.logger.error(
+        `Error sending escrow funded notifications: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  /**
+   * Submit delivery proof for an escrow
    */
   async submitDeliveryProof(
     escrowId: string,
@@ -324,23 +426,25 @@ export class EscrowService {
         manager,
         TransactionType.ESCROW_PROOF_SUBMITTED,
         userId,
-        escrowId,
-        "Escrow",
+        savedProof.id,
+        "deliveryProof",
         {
           escrowId,
-          proofId: savedProof.id,
-          type: data.type,
-          files: data.files,
+          proof: savedProof.id,
+          proofType: data.type,
         },
         requestMetadata
       );
+
+      // Send notification to buyer about the new proof
+      await this.sendProofSubmittedNotification(escrow, savedProof);
 
       return savedProof;
     });
   }
 
   /**
-   * Review submitted proof
+   * Review a delivery proof
    */
   async reviewDeliveryProof(
     proofId: string,
@@ -388,24 +492,129 @@ export class EscrowService {
         await this.completeEscrow(escrow.id, manager);
       }
 
-      // Log the transaction
+      // Log transaction
       await this.logTransaction(
         manager,
-        TransactionType.ESCROW_PROOF_REVIEWED,
+        decision === "accept"
+          ? TransactionType.ESCROW_PROOF_REVIEWED
+          : TransactionType.ESCROW_PROOF_REVIEWED,
         userId,
-        proof.escrowId,
-        "Escrow",
+        proof.id,
+        "deliveryProof",
         {
           escrowId: proof.escrowId,
-          proofId,
+          proof: proof.id,
           decision,
-          rejectionReason,
+          ...(rejectionReason && { rejectionReason }),
         },
         requestMetadata
       );
 
+      // Send notification about the proof review
+      if (decision === "accept") {
+        await this.sendProofApprovedNotification(escrow, proof);
+      } else {
+        await this.sendProofRejectedNotification(
+          escrow,
+          proof,
+          rejectionReason
+        );
+      }
+
       return updatedProof;
     });
+  }
+
+  /**
+   * Send notification when a proof is submitted
+   */
+  private async sendProofSubmittedNotification(
+    escrow: Escrow,
+    proof: DeliveryProof
+  ): Promise<void> {
+    try {
+      // Notify the buyer that a proof has been submitted
+      await this.notificationService.createNotification({
+        userId: escrow.buyerId,
+        type: NotificationType.PROOF_SUBMITTED,
+        title: "Delivery Proof Submitted",
+        message: `The seller has submitted a delivery proof for "${escrow.title}". Please review it.`,
+        actionUrl: `/escrows/${escrow.id}/proofs/${proof.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          proofId: proof.id,
+          proofType: proof.type,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the proof submission
+      this.logger.error(
+        `Error sending proof submitted notification: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  /**
+   * Send notification when a proof is approved
+   */
+  private async sendProofApprovedNotification(
+    escrow: Escrow,
+    proof: DeliveryProof
+  ): Promise<void> {
+    try {
+      // Notify the seller that their proof was approved
+      await this.notificationService.createNotification({
+        userId: escrow.sellerId,
+        type: NotificationType.PROOF_APPROVED,
+        title: "Delivery Proof Approved",
+        message: `Your delivery proof for "${escrow.title}" has been approved.`,
+        actionUrl: `/escrows/${escrow.id}/proofs/${proof.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          proofId: proof.id,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the proof approval process
+      this.logger.error(
+        `Error sending proof approved notification: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  /**
+   * Send notification when a proof is rejected
+   */
+  private async sendProofRejectedNotification(
+    escrow: Escrow,
+    proof: DeliveryProof,
+    rejectionReason?: string
+  ): Promise<void> {
+    try {
+      // Notify the seller that their proof was rejected
+      await this.notificationService.createNotification({
+        userId: escrow.sellerId,
+        type: NotificationType.PROOF_REJECTED,
+        title: "Delivery Proof Rejected",
+        message: `Your delivery proof for "${escrow.title}" was rejected${
+          rejectionReason ? `: ${rejectionReason}` : ""
+        }.`,
+        actionUrl: `/escrows/${escrow.id}/proofs/${proof.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          proofId: proof.id,
+          rejectionReason,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the proof rejection process
+      this.logger.error(
+        `Error sending proof rejected notification: ${error.message}`,
+        error.stack
+      );
+    }
   }
 
   /**
@@ -488,12 +697,107 @@ export class EscrowService {
         requestMetadata
       );
 
+      // Send notifications about milestone update
+      await this.sendMilestoneUpdateNotifications(
+        escrow,
+        milestone,
+        status,
+        userId
+      );
+
       return updatedMilestone;
     });
   }
 
   /**
-   * Complete an escrow and release funds to seller
+   * Send notifications when a milestone is updated
+   */
+  private async sendMilestoneUpdateNotifications(
+    escrow: Escrow,
+    milestone: EscrowMilestone,
+    status: MilestoneStatus,
+    updatedByUserId: string
+  ): Promise<void> {
+    try {
+      const isBuyer = updatedByUserId === escrow.buyerId;
+      const otherPartyId = isBuyer ? escrow.sellerId : escrow.buyerId;
+
+      // Determine message based on status
+      let title = "Milestone Updated";
+      let buyerMessage = "";
+      let sellerMessage = "";
+
+      if (status === MilestoneStatus.COMPLETED) {
+        title = "Milestone Completed";
+        buyerMessage = `You've marked milestone "${milestone.description}" as completed for escrow "${escrow.title}".`;
+        sellerMessage = `The buyer has marked milestone "${milestone.description}" as completed for escrow "${escrow.title}".`;
+      } else if (status === MilestoneStatus.DISPUTED) {
+        title = "Milestone Disputed";
+        const action = isBuyer ? "buyer" : "seller";
+        buyerMessage = isBuyer
+          ? `You've marked milestone "${milestone.description}" as disputed for escrow "${escrow.title}".`
+          : `The seller has marked milestone "${milestone.description}" as disputed for escrow "${escrow.title}".`;
+        sellerMessage = isBuyer
+          ? `The buyer has marked milestone "${milestone.description}" as disputed for escrow "${escrow.title}".`
+          : `You've marked milestone "${milestone.description}" as disputed for escrow "${escrow.title}".`;
+      }
+
+      // Notification for the user who updated the milestone
+      if (updatedByUserId === escrow.buyerId) {
+        await this.notificationService.createNotification({
+          userId: escrow.buyerId,
+          type: NotificationType.MILESTONE_UPDATED,
+          title,
+          message: buyerMessage,
+          actionUrl: `/escrows/${escrow.id}`,
+          metadata: {
+            escrowId: escrow.id,
+            milestoneId: milestone.id,
+            status,
+            milestoneAmount: milestone.amount,
+          },
+        });
+      } else {
+        await this.notificationService.createNotification({
+          userId: escrow.sellerId,
+          type: NotificationType.MILESTONE_UPDATED,
+          title,
+          message: sellerMessage,
+          actionUrl: `/escrows/${escrow.id}`,
+          metadata: {
+            escrowId: escrow.id,
+            milestoneId: milestone.id,
+            status,
+            milestoneAmount: milestone.amount,
+          },
+        });
+      }
+
+      // Notification for the other party
+      await this.notificationService.createNotification({
+        userId: otherPartyId,
+        type: NotificationType.MILESTONE_UPDATED,
+        title,
+        message: otherPartyId === escrow.buyerId ? buyerMessage : sellerMessage,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          milestoneId: milestone.id,
+          status,
+          milestoneAmount: milestone.amount,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the milestone update process
+      this.logger.error(
+        `Error sending milestone update notifications: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  /**
+   * Complete an escrow, releasing funds to the seller
    */
   async completeEscrow(
     escrowId: string,
@@ -542,27 +846,71 @@ export class EscrowService {
 
     const updatedEscrow = await manager.save(Escrow, escrow);
 
-    // If we're not in a transaction already, log the completion
+    // Log the transaction
+    await this.logTransaction(
+      manager || this.dataSource.manager,
+      TransactionType.ESCROW_COMPLETED,
+      escrow.buyerId,
+      escrow.id,
+      "escrow",
+      {
+        escrowId: escrow.id,
+        totalAmount: escrow.totalAmount,
+      },
+      null
+    );
+
+    // Send notifications for escrow completion
     if (!transactionManager) {
-      await this.logTransaction(
-        manager,
-        TransactionType.ESCROW_COMPLETED,
-        escrow.buyerId,
-        escrowId,
-        "Escrow",
-        {
-          escrowId,
-          totalAmount: escrow.totalAmount,
-          sellerId: escrow.sellerId,
-        }
-      );
+      await this.sendEscrowCompletedNotifications(escrow);
     }
 
     return updatedEscrow;
   }
 
   /**
-   * Cancel an escrow and refund buyer
+   * Send notifications when an escrow is completed and funds are released
+   */
+  private async sendEscrowCompletedNotifications(
+    escrow: Escrow
+  ): Promise<void> {
+    try {
+      // Notification for seller (funds received)
+      await this.notificationService.createNotification({
+        userId: escrow.sellerId,
+        type: NotificationType.ESCROW_COMPLETED,
+        title: "Escrow Completed - Funds Released",
+        message: `The escrow for "${escrow.title}" has been completed and $${escrow.totalAmount} has been released to your wallet.`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+        },
+      });
+
+      // Notification for buyer (escrow completed)
+      await this.notificationService.createNotification({
+        userId: escrow.buyerId,
+        type: NotificationType.ESCROW_COMPLETED,
+        title: "Escrow Completed",
+        message: `The escrow for "${escrow.title}" has been completed and funds have been released to the seller.`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the escrow completion process
+      this.logger.error(
+        `Error sending escrow completed notifications: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  /**
+   * Cancel an escrow agreement and refund the buyer
    */
   async cancelEscrow(
     escrowId: string,
@@ -620,25 +968,86 @@ export class EscrowService {
 
       // Update escrow status
       escrow.status = EscrowStatus.CANCELLED;
-      const updatedEscrow = await manager.save(Escrow, escrow);
 
-      // Log the transaction
+      // Create transaction log
       await this.logTransaction(
         manager,
         TransactionType.ESCROW_CANCELLED,
         userId,
-        escrowId,
-        "Escrow",
+        escrow.id,
+        "escrow",
         {
           escrowId,
-          status: escrow.status,
           cancelledBy: userId,
+          reason: "User requested cancellation",
         },
         requestMetadata
       );
 
-      return updatedEscrow;
+      // Send notifications about the cancellation (after transaction completes)
+      const savedEscrow = await manager.save(Escrow, escrow);
+
+      // The transaction will be committed automatically when the callback returns
+
+      // Send notifications about the cancellation
+      await this.sendEscrowCancelledNotifications(escrow, userId);
+
+      return savedEscrow;
     });
+  }
+
+  /**
+   * Send notifications when an escrow is cancelled
+   */
+  private async sendEscrowCancelledNotifications(
+    escrow: Escrow,
+    cancelledByUserId: string
+  ): Promise<void> {
+    try {
+      const isCancelledByBuyer = cancelledByUserId === escrow.buyerId;
+      const otherPartyId = isCancelledByBuyer
+        ? escrow.sellerId
+        : escrow.buyerId;
+
+      // Notification for the user who cancelled
+      await this.notificationService.createNotification({
+        userId: cancelledByUserId,
+        type: NotificationType.ESCROW_RELEASED,
+        title: "Escrow Cancelled",
+        message: `You have cancelled the escrow for "${escrow.title}".${
+          isCancelledByBuyer
+            ? " Your funds have been returned to your wallet."
+            : ""
+        }`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+        },
+      });
+
+      // Notification for the other party
+      await this.notificationService.createNotification({
+        userId: otherPartyId,
+        type: NotificationType.ESCROW_RELEASED,
+        title: "Escrow Cancelled",
+        message: `The escrow for "${escrow.title}" has been cancelled by the ${
+          isCancelledByBuyer ? "buyer" : "seller"
+        }.`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+          cancelledBy: cancelledByUserId,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the escrow cancellation process
+      this.logger.error(
+        `Error sending escrow cancelled notifications: ${error.message}`,
+        error.stack
+      );
+    }
   }
 
   /**
@@ -755,6 +1164,9 @@ export class EscrowService {
           );
         });
 
+        // Send notifications about the automatic release
+        await this.sendAutomaticReleaseNotifications(escrow);
+
         releasedCount++;
         this.logger.log(`Successfully released escrow ${escrow.id}`);
       } catch (error) {
@@ -769,6 +1181,51 @@ export class EscrowService {
       `Successfully processed ${releasedCount} of ${escrows.length} scheduled releases`
     );
     return releasedCount;
+  }
+
+  /**
+   * Send notifications when an escrow is automatically released based on schedule
+   */
+  private async sendAutomaticReleaseNotifications(
+    escrow: Escrow
+  ): Promise<void> {
+    try {
+      // Notification for seller (funds received)
+      await this.notificationService.createNotification({
+        userId: escrow.sellerId,
+        type: NotificationType.ESCROW_RELEASED,
+        title: "Escrow Funds Automatically Released",
+        message: `Funds for escrow "${escrow.title}" have been automatically released to your wallet based on the scheduled release date.`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+          automatic: true,
+          releaseDate: escrow.scheduleReleaseAt,
+        },
+      });
+
+      // Notification for buyer
+      await this.notificationService.createNotification({
+        userId: escrow.buyerId,
+        type: NotificationType.ESCROW_RELEASED,
+        title: "Escrow Funds Automatically Released",
+        message: `Funds for escrow "${escrow.title}" have been automatically released to the seller based on the scheduled release date.`,
+        actionUrl: `/escrows/${escrow.id}`,
+        metadata: {
+          escrowId: escrow.id,
+          amount: escrow.totalAmount,
+          automatic: true,
+          releaseDate: escrow.scheduleReleaseAt,
+        },
+      });
+    } catch (error) {
+      // Log error but don't block the escrow processing
+      this.logger.error(
+        `Error sending automatic release notifications: ${error.message}`,
+        error.stack
+      );
+    }
   }
 
   /**

@@ -10,32 +10,7 @@ import {
 } from "typeorm";
 import { User } from "./user.entity";
 import { encryptedColumn } from "../modules/common/transformers/encrypted-column.factory";
-
-export enum PaymentMethod {
-  WALLET = "WALLET",
-  CREDIT_CARD = "CREDIT_CARD",
-  CRYPTO_BTC = "CRYPTO_BTC",
-  CRYPTO_ETH = "CRYPTO_ETH",
-  CRYPTO_USDT = "CRYPTO_USDT",
-}
-
-export enum PaymentStatus {
-  PENDING = "PENDING",
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  REFUNDED = "REFUNDED",
-  DISPUTED = "DISPUTED",
-  HELD = "HELD",
-  ESCROW = "ESCROW",
-}
-
-export enum ThreeDsStatus {
-  NOT_REQUIRED = "NOT_REQUIRED",
-  REQUIRED = "REQUIRED",
-  AUTHENTICATED = "AUTHENTICATED",
-  FAILED = "FAILED",
-  REJECTED = "REJECTED",
-}
+import { PaymentMethod, PaymentStatus, ThreeDsStatus } from "./common.enums";
 
 @Entity("payments")
 export class Payment {

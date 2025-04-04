@@ -26,7 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayCreatorDto = exports.DepositDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
-const payment_entity_1 = require("../../../entities/payment.entity");
+const common_enums_1 = require("../../../entities/common.enums");
 class DepositDto {
 }
 __decorate([
@@ -38,11 +38,11 @@ __decorate([
 ], DepositDto.prototype, "amount", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        enum: payment_entity_1.PaymentMethod,
-        example: payment_entity_1.PaymentMethod.CREDIT_CARD,
+        enum: common_enums_1.PaymentMethod,
+        example: common_enums_1.PaymentMethod.CREDIT_CARD,
         description: "Payment method for deposit",
     }),
-    (0, class_validator_1.IsEnum)(payment_entity_1.PaymentMethod),
+    (0, class_validator_1.IsEnum)(common_enums_1.PaymentMethod),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], DepositDto.prototype, "paymentMethod", void 0);

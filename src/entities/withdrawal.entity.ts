@@ -8,14 +8,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { User } from "./user.entity";
-import { PaymentMethod } from "./payment.entity";
-
-export enum WithdrawalStatus {
-  PENDING = "PENDING",
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  REJECTED = "REJECTED",
-}
+import { PaymentMethod, WithdrawalStatus } from "./common.enums";
 
 @Entity("withdrawals")
 export class Withdrawal {

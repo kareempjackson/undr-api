@@ -1,9 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { SecurityController } from "./security.controller";
-import { EscrowService } from "./escrow.service";
 import { RiskAssessmentService } from "./risk-assessment.service";
-import { DisputeService } from "./dispute.service";
 import { ThreeDsService } from "./three-ds.service";
+import { DisputeService } from "../dispute/dispute.service";
+import { EscrowService } from "./escrow.service";
 import { ProxyDetectionService } from "./proxy-detection.service";
 import { EncryptionService } from "./encryption.service";
 import { JwtService } from "@nestjs/jwt";
@@ -32,32 +32,41 @@ type MockRequest = Partial<Request> & {
 describe("SecurityController", () => {
   let controller: SecurityController;
   let escrowService: EscrowService;
+  let riskAssessmentService: RiskAssessmentService;
+  let threeDsService: ThreeDsService;
+  let disputeService: DisputeService;
 
   const mockEscrowService = {
     createEscrow: jest.fn(),
     fundEscrow: jest.fn(),
     submitDeliveryProof: jest.fn(),
+    getEscrowProofs: jest.fn(),
     reviewDeliveryProof: jest.fn(),
-    updateMilestone: jest.fn(),
+    updateMilestoneStatus: jest.fn(),
     completeEscrow: jest.fn(),
     cancelEscrow: jest.fn(),
-    getEscrowsByUser: jest.fn(),
+    getEscrows: jest.fn(),
     getEscrowById: jest.fn(),
-    getEscrowProofs: jest.fn(),
+    evaluateRisk: jest.fn(),
   };
 
   const mockRiskAssessmentService = {
-    evaluateRisk: jest.fn(),
+    assessRisk: jest.fn(),
+    getPendingReviews: jest.fn(),
+    reviewAssessment: jest.fn(),
   };
 
   const mockDisputeService = {
     createDispute: jest.fn(),
-    getDisputeById: jest.fn(),
+    submitEvidence: jest.fn(),
+    resolveDisputeByAdmin: jest.fn(),
+    getDisputesForUser: jest.fn(),
+    getDisputeDetails: jest.fn(),
   };
 
   const mockThreeDsService = {
-    createPaymentIntent: jest.fn(),
-    getPaymentIntentStatus: jest.fn(),
+    create3dsIntent: jest.fn(),
+    check3dsStatus: jest.fn(),
   };
 
   const mockProxyDetectionService = {
@@ -97,13 +106,34 @@ describe("SecurityController", () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SecurityController],
       providers: [
-        { provide: EscrowService, useValue: mockEscrowService },
-        { provide: RiskAssessmentService, useValue: mockRiskAssessmentService },
-        { provide: DisputeService, useValue: mockDisputeService },
-        { provide: ThreeDsService, useValue: mockThreeDsService },
-        { provide: ProxyDetectionService, useValue: mockProxyDetectionService },
-        { provide: EncryptionService, useValue: mockEncryptionService },
-        { provide: JwtService, useValue: mockJwtService },
+        {
+          provide: EscrowService,
+          useValue: mockEscrowService,
+        },
+        {
+          provide: RiskAssessmentService,
+          useValue: mockRiskAssessmentService,
+        },
+        {
+          provide: DisputeService,
+          useValue: mockDisputeService,
+        },
+        {
+          provide: ThreeDsService,
+          useValue: mockThreeDsService,
+        },
+        {
+          provide: ProxyDetectionService,
+          useValue: mockProxyDetectionService,
+        },
+        {
+          provide: EncryptionService,
+          useValue: mockEncryptionService,
+        },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
         {
           provide: getRepositoryToken(Escrow),
           useValue: { findOne: jest.fn(), find: jest.fn(), save: jest.fn() },
@@ -121,16 +151,18 @@ describe("SecurityController", () => {
 
     controller = module.get<SecurityController>(SecurityController);
     escrowService = module.get<EscrowService>(EscrowService);
+    riskAssessmentService = module.get<RiskAssessmentService>(
+      RiskAssessmentService
+    );
+    threeDsService = module.get<ThreeDsService>(ThreeDsService);
+    disputeService = module.get<DisputeService>(DisputeService);
 
     // Mock the private extractRequestMetadata method to avoid request object issues
-    jest
-      .spyOn(controller as any, "extractRequestMetadata")
-      .mockImplementation(() => ({
-        ip: "127.0.0.1",
-        userAgent: "Test User Agent",
-        timestamp: new Date().toISOString(),
-        userId: "test-user-id",
-      }));
+    jest.spyOn(controller as any, "extractRequestMetadata").mockReturnValue({
+      ip: "127.0.0.1",
+      userAgent: "test-agent",
+      timestamp: new Date().toISOString(),
+    });
   });
 
   it("should be defined", () => {

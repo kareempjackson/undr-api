@@ -395,6 +395,208 @@ Updates the status of a specific milestone.
 }
 ```
 
+## Dispute Resolution API
+
+### Create Dispute
+
+**URL**: `/security/disputes`  
+**Method**: `POST`  
+**Auth Required**: Yes (JWT Token)
+
+**Request Body**:
+
+```json
+{
+  "escrowId": "uuid",
+  "reason": "string",
+  "details": {
+    // Optional additional details about the dispute
+  }
+}
+```
+
+**Response**:
+
+```json
+{
+  "id": "uuid",
+  "escrowId": "uuid",
+  "createdById": "uuid",
+  "reason": "string",
+  "status": "EVIDENCE_SUBMISSION",
+  "details": {},
+  "evidenceDeadline": "2023-07-20T00:00:00.000Z",
+  "createdAt": "2023-07-15T00:00:00.000Z",
+  "updatedAt": "2023-07-15T00:00:00.000Z"
+}
+```
+
+### Submit Dispute Evidence
+
+**URL**: `/security/disputes/:disputeId/evidence`  
+**Method**: `POST`  
+**Auth Required**: Yes (JWT Token)
+
+**Request Body**:
+
+```json
+{
+  "type": "TEXT | IMAGE | DOCUMENT | VIDEO | OTHER",
+  "description": "string",
+  "files": [
+    // Optional array of file references
+  ]
+}
+```
+
+**Response**:
+
+```json
+{
+  "id": "uuid",
+  "disputeId": "uuid",
+  "submittedById": "uuid",
+  "type": "TEXT",
+  "description": "string",
+  "files": [],
+  "createdAt": "2023-07-15T00:00:00.000Z",
+  "updatedAt": "2023-07-15T00:00:00.000Z"
+}
+```
+
+### Send Dispute Message
+
+**URL**: `/security/disputes/:disputeId/messages`  
+**Method**: `POST`  
+**Auth Required**: Yes (JWT Token)
+
+**Request Body**:
+
+```json
+{
+  "message": "string",
+  "metadata": {
+    // Optional additional data
+  }
+}
+```
+
+**Response**:
+
+```json
+{
+  "id": "uuid",
+  "disputeId": "uuid",
+  "senderId": "uuid",
+  "message": "string",
+  "isSystemMessage": false,
+  "metadata": {},
+  "createdAt": "2023-07-15T00:00:00.000Z",
+  "updatedAt": "2023-07-15T00:00:00.000Z"
+}
+```
+
+### Propose Dispute Resolution
+
+**URL**: `/security/disputes/:disputeId/propose-resolution`  
+**Method**: `POST`  
+**Auth Required**: Yes (JWT Token)
+
+**Request Body**:
+
+```json
+{
+  "resolution": "BUYER_REFUND | SELLER_RECEIVE | SPLIT | CUSTOM",
+  "buyerAmount": 60, // Optional, required for SPLIT or CUSTOM
+  "sellerAmount": 40, // Optional, required for SPLIT or CUSTOM
+  "details": {
+    // Optional additional details about the proposal
+  }
+}
+```
+
+**Response**: Dispute object
+
+### Accept Resolution
+
+**URL**: `/security/disputes/:disputeId/accept-resolution`  
+**Method**: `POST`  
+**Auth Required**: Yes (JWT Token)
+
+**Response**: Dispute object with updated status
+
+### Admin Resolve Dispute
+
+**URL**: `/security/disputes/:disputeId/admin-resolve`  
+**Method**: `POST`  
+**Auth Required**: Yes (JWT Token) + Admin rights
+
+**Request Body**:
+
+```json
+{
+  "resolution": "BUYER_REFUND | SELLER_RECEIVE | SPLIT | CUSTOM",
+  "buyerAmount": 60, // Optional, required for SPLIT or CUSTOM
+  "sellerAmount": 40, // Optional, required for SPLIT or CUSTOM
+  "notes": "string" // Optional administrative notes
+}
+```
+
+**Response**: Dispute object with updated status
+
+### Get Dispute Details
+
+**URL**: `/security/disputes/:disputeId`  
+**Method**: `GET`  
+**Auth Required**: Yes (JWT Token)
+
+**Response**:
+
+```json
+{
+  "dispute": {
+    // Dispute details
+  },
+  "evidence": [
+    // Array of evidence submissions
+  ],
+  "messages": [
+    // Array of dispute messages
+  ],
+  "escrow": {
+    // Related escrow details
+  }
+}
+```
+
+### Get User Disputes
+
+**URL**: `/security/disputes`  
+**Method**: `GET`  
+**Auth Required**: Yes (JWT Token)
+
+**Query Parameters**:
+
+- `status`: (Optional) Filter by dispute status
+
+**Response**: Array of dispute objects
+
+### Get Dispute Evidence
+
+**URL**: `/security/disputes/:disputeId/evidence`  
+**Method**: `GET`  
+**Auth Required**: Yes (JWT Token)
+
+**Response**: Array of evidence objects
+
+### Get Dispute Messages
+
+**URL**: `/security/disputes/:disputeId/messages`  
+**Method**: `GET`  
+**Auth Required**: Yes (JWT Token)
+
+**Response**: Array of message objects
+
 ## Error Responses
 
 The API uses the following error codes:
