@@ -8,5 +8,5 @@ healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on-failure"
 
-[environments]
-node_version = "18" 
+[nixpacks]
+nodejs_version = "18" 
