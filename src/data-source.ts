@@ -8,6 +8,12 @@ let dataSourceOptions: DataSourceOptions;
 // Check if DATABASE_URL is provided (Railway or other PaaS)
 if (process.env.DATABASE_URL) {
   console.log("Using DATABASE_URL for database connection");
+
+  // Only use SSL in production environment or if explicitly set
+  const useSSL =
+    process.env.USE_SSL === "true" || process.env.NODE_ENV === "production";
+  console.log(`SSL connections: ${useSSL ? "enabled" : "disabled"}`);
+
   dataSourceOptions = {
     type: "postgres",
     url: process.env.DATABASE_URL,
@@ -15,7 +21,7 @@ if (process.env.DATABASE_URL) {
     migrations: ["dist/migrations/*.js", "src/migrations/*.ts"],
     synchronize: false,
     logging: process.env.NODE_ENV === "development",
-    ssl: { rejectUnauthorized: false },
+    ssl: useSSL ? { rejectUnauthorized: false } : false,
   } as DataSourceOptions;
 } else {
   console.log("Using individual connection parameters for database");

@@ -44,6 +44,10 @@ __decorate([
     (0, typeorm_1.JoinColumn)({ name: "userId" }),
     __metadata("design:type", user_entity_1.User)
 ], Wallet.prototype, "user", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], Wallet.prototype, "chargebackBuffer", void 0);
 Wallet = __decorate([
     (0, typeorm_1.Entity)("wallets")
 ], Wallet);

@@ -9,7 +9,9 @@ export declare enum TransactionType {
     ESCROW_REFUNDED = "ESCROW_REFUNDED",
     ESCROW_DISPUTED = "ESCROW_DISPUTED",
     ESCROW_TERMS_UPDATED = "ESCROW_TERMS_UPDATED",
-    MILESTONE_UPDATED = "MILESTONE_UPDATED"
+    MILESTONE_UPDATED = "MILESTONE_UPDATED",
+    CHARGEBACK_BUFFER_ALLOCATION = "CHARGEBACK_BUFFER_ALLOCATION",
+    CHARGEBACK_BUFFER_DEDUCTION = "CHARGEBACK_BUFFER_DEDUCTION"
 }
 export declare class TransactionLog {
     id: string;
@@ -23,4 +25,8 @@ export declare class TransactionLog {
     userAgent: string;
     metadata: Record<string, any>;
     createdAt: Date;
+    action: string;
+    details: Record<string, any>;
+    amount: number;
+    level: string;
 }

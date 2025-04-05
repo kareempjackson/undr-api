@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "NODE_ENV=production node dist/main"
+startCommand = "NODE_ENV=production node dist/src/main"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 

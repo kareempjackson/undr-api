@@ -6,4 +6,5 @@ export declare class Wallet {
     updatedAt: Date;
     userId: string;
     user: User;
+    chargebackBuffer: boolean;
 }

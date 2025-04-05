@@ -36,4 +36,7 @@ export class Wallet {
   @OneToOne(() => User, (user) => user.wallet)
   @JoinColumn({ name: "userId" })
   user: User;
+
+  @Column({ default: false })
+  chargebackBuffer: boolean;
 }

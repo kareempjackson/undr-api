@@ -16,7 +16,20 @@ let AdminModule = class AdminModule {
 };
 AdminModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([entities_1.User, entities_1.Payment])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([
+                entities_1.User,
+                entities_1.Payment,
+                entities_1.Dispute,
+                entities_1.Escrow,
+                entities_1.Wallet,
+                entities_1.DisputeEvidence,
+                entities_1.DisputeMessage,
+                entities_1.Withdrawal,
+                entities_1.Deposit,
+                entities_1.TransactionLog,
+            ]),
+        ],
         controllers: [admin_controller_1.AdminController],
         providers: [admin_service_1.AdminService],
         exports: [admin_service_1.AdminService],

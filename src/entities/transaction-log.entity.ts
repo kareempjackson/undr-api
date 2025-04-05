@@ -19,6 +19,8 @@ export enum TransactionType {
   ESCROW_DISPUTED = "ESCROW_DISPUTED",
   ESCROW_TERMS_UPDATED = "ESCROW_TERMS_UPDATED",
   MILESTONE_UPDATED = "MILESTONE_UPDATED",
+  CHARGEBACK_BUFFER_ALLOCATION = "CHARGEBACK_BUFFER_ALLOCATION",
+  CHARGEBACK_BUFFER_DEDUCTION = "CHARGEBACK_BUFFER_DEDUCTION",
 }
 
 @Entity("transaction_logs")
@@ -56,4 +58,16 @@ export class TransactionLog {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @Column({ type: "text", nullable: true })
+  action: string;
+
+  @Column({ type: "jsonb", nullable: true })
+  details: Record<string, any>;
+
+  @Column({ type: "decimal", precision: 20, scale: 8, nullable: true })
+  amount: number;
+
+  @Column({ type: "text", default: "info", nullable: true })
+  level: string;
 }

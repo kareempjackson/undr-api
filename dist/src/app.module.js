@@ -35,18 +35,34 @@ AppModule = __decorate([
             typeorm_1.TypeOrmModule.forRootAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
-                useFactory: (configService) => ({
-                    type: "postgres",
-                    host: configService.get("POSTGRES_HOST"),
-                    port: parseInt(configService.get("POSTGRES_PORT")),
-                    username: configService.get("POSTGRES_USER"),
-                    password: configService.get("POSTGRES_PASSWORD"),
-                    database: configService.get("POSTGRES_DB"),
-                    entities: ["dist/**/*.entity{.ts,.js}"],
-                    synchronize: configService.get("NODE_ENV") !== "production",
-                    logging: configService.get("NODE_ENV") === "development",
-                    autoLoadEntities: true,
-                }),
+                useFactory: (configService) => {
+                    const databaseUrl = configService.get("DATABASE_URL");
+                    if (databaseUrl) {
+                        return {
+                            type: "postgres",
+                            url: databaseUrl,
+                            entities: ["dist/**/*.entity{.ts,.js}"],
+                            synchronize: configService.get("NODE_ENV") !== "production",
+                            logging: configService.get("NODE_ENV") === "development",
+                            autoLoadEntities: true,
+                            ssl: process.env.NODE_ENV === "production"
+                                ? { rejectUnauthorized: false }
+                                : false,
+                        };
+                    }
+                    return {
+                        type: "postgres",
+                        host: configService.get("POSTGRES_HOST") || "localhost",
+                        port: parseInt(configService.get("POSTGRES_PORT") || "5432"),
+                        username: configService.get("POSTGRES_USER") || "postgres",
+                        password: configService.get("POSTGRES_PASSWORD"),
+                        database: configService.get("POSTGRES_DB") || "ghostpay",
+                        entities: ["dist/**/*.entity{.ts,.js}"],
+                        synchronize: configService.get("NODE_ENV") !== "production",
+                        logging: configService.get("NODE_ENV") === "development",
+                        autoLoadEntities: true,
+                    };
+                },
             }),
             common_module_1.CommonModule,
             auth_module_1.AuthModule,

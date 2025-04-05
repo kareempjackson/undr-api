@@ -24,6 +24,8 @@ var TransactionType;
     TransactionType["ESCROW_DISPUTED"] = "ESCROW_DISPUTED";
     TransactionType["ESCROW_TERMS_UPDATED"] = "ESCROW_TERMS_UPDATED";
     TransactionType["MILESTONE_UPDATED"] = "MILESTONE_UPDATED";
+    TransactionType["CHARGEBACK_BUFFER_ALLOCATION"] = "CHARGEBACK_BUFFER_ALLOCATION";
+    TransactionType["CHARGEBACK_BUFFER_DEDUCTION"] = "CHARGEBACK_BUFFER_DEDUCTION";
 })(TransactionType = exports.TransactionType || (exports.TransactionType = {}));
 let TransactionLog = class TransactionLog {
 };
@@ -72,6 +74,22 @@ __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], TransactionLog.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "text", nullable: true }),
+    __metadata("design:type", String)
+], TransactionLog.prototype, "action", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true }),
+    __metadata("design:type", Object)
+], TransactionLog.prototype, "details", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "decimal", precision: 20, scale: 8, nullable: true }),
+    __metadata("design:type", Number)
+], TransactionLog.prototype, "amount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "text", default: "info", nullable: true }),
+    __metadata("design:type", String)
+], TransactionLog.prototype, "level", void 0);
 TransactionLog = __decorate([
     (0, typeorm_1.Entity)("transaction_logs")
 ], TransactionLog);
