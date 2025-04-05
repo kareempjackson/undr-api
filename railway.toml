@@ -8,4 +8,4 @@ healthcheckPath = "/"
 healthcheckTimeout = 300
 
 [nixpacks]
-nodejs_version = "18" 
+nodejs_version = "20" 
