@@ -6,7 +6,6 @@ buildCommand = "npm run build"
 startCommand = "npm run start:prod"
 healthcheckPath = "/"
 healthcheckTimeout = 300
-restartPolicyType = "on-failure"
 
 [nixpacks]
 nodejs_version = "18" 
