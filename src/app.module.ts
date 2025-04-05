@@ -24,18 +24,40 @@ import { DatabaseModule } from "./modules/database/database.module";
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: "postgres",
-        host: configService.get("POSTGRES_HOST"),
-        port: parseInt(configService.get("POSTGRES_PORT")),
-        username: configService.get("POSTGRES_USER"),
-        password: configService.get("POSTGRES_PASSWORD"),
-        database: configService.get("POSTGRES_DB"),
-        entities: ["dist/**/*.entity{.ts,.js}"],
-        synchronize: configService.get("NODE_ENV") !== "production",
-        logging: configService.get("NODE_ENV") === "development",
-        autoLoadEntities: true,
-      }),
+      useFactory: (configService: ConfigService) => {
+        // Check if DATABASE_URL is provided (Railway or other PaaS)
+        const databaseUrl = configService.get<string>("DATABASE_URL");
+
+        if (databaseUrl) {
+          // If DATABASE_URL is provided, use it directly
+          return {
+            type: "postgres",
+            url: databaseUrl,
+            entities: ["dist/**/*.entity{.ts,.js}"],
+            synchronize: configService.get("NODE_ENV") !== "production",
+            logging: configService.get("NODE_ENV") === "development",
+            autoLoadEntities: true,
+            ssl:
+              process.env.NODE_ENV === "production"
+                ? { rejectUnauthorized: false }
+                : false,
+          };
+        }
+
+        // Fallback to individual connection parameters
+        return {
+          type: "postgres",
+          host: configService.get("POSTGRES_HOST") || "localhost",
+          port: parseInt(configService.get("POSTGRES_PORT") || "5432"),
+          username: configService.get("POSTGRES_USER") || "postgres",
+          password: configService.get("POSTGRES_PASSWORD"),
+          database: configService.get("POSTGRES_DB") || "ghostpay",
+          entities: ["dist/**/*.entity{.ts,.js}"],
+          synchronize: configService.get("NODE_ENV") !== "production",
+          logging: configService.get("NODE_ENV") === "development",
+          autoLoadEntities: true,
+        };
+      },
     }),
     CommonModule,
     AuthModule,
