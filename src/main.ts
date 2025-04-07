@@ -7,28 +7,15 @@ import { setEncryptionService } from "./modules/common/transformers/encrypted-co
 import { EncryptionService } from "./modules/security/encryption.service";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import * as dotenv from "dotenv";
-import { AppDataSource } from "./data-source";
 
 // Load environment variables
 dotenv.config();
 
 async function bootstrap() {
   try {
-    // Try to run migrations in production
-    if (process.env.NODE_ENV === "production" && process.env.DATABASE_URL) {
-      try {
-        console.log("Attempting to run migrations...");
-
-        // Use the imported AppDataSource directly in production
-        await AppDataSource.initialize();
-        await AppDataSource.runMigrations();
-        console.log("Migrations completed successfully");
-        await AppDataSource.destroy();
-      } catch (error) {
-        console.error("Error running migrations:", error);
-        // Continue even if migrations fail
-      }
-    }
+    // Remove direct migrations in bootstrap function
+    // This should be handled by a separate command/process in production
+    // See: migration:run script in package.json
 
     const app = await NestFactory.create(AppModule, {
       bodyParser: false, // Disable built-in bodyParser for custom handling

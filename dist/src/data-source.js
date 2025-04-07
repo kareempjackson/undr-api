@@ -5,15 +5,22 @@ const typeorm_1 = require("typeorm");
 const dotenv = require("dotenv");
 dotenv.config();
 let dataSourceOptions;
+const isProduction = process.env.NODE_ENV === "production";
+const entitiesPath = isProduction
+    ? ["dist/**/*.entity.js"]
+    : ["dist/**/*.entity.js", "src/**/*.entity.ts"];
+const migrationsPath = isProduction
+    ? ["dist/migrations/*.js"]
+    : ["dist/migrations/*.js", "src/migrations/*.ts"];
 if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for database connection");
-    const useSSL = process.env.USE_SSL === "true" || process.env.NODE_ENV === "production";
+    const useSSL = process.env.USE_SSL === "true" || isProduction;
     console.log(`SSL connections: ${useSSL ? "enabled" : "disabled"}`);
     dataSourceOptions = {
         type: "postgres",
         url: process.env.DATABASE_URL,
-        entities: ["dist/**/*.entity{.ts,.js}", "src/**/*.entity{.ts,.js}"],
-        migrations: ["dist/migrations/*.js", "src/migrations/*.ts"],
+        entities: entitiesPath,
+        migrations: migrationsPath,
         synchronize: false,
         logging: process.env.NODE_ENV === "development",
         ssl: useSSL ? { rejectUnauthorized: false } : false,
@@ -28,8 +35,8 @@ else {
         username: process.env.POSTGRES_USER || "postgres",
         password: process.env.POSTGRES_PASSWORD || "F@stskin101",
         database: process.env.POSTGRES_DB || "ghostpay",
-        entities: ["dist/**/*.entity{.ts,.js}", "src/**/*.entity{.ts,.js}"],
-        migrations: ["dist/migrations/*.js", "src/migrations/*.ts"],
+        entities: entitiesPath,
+        migrations: migrationsPath,
         synchronize: false,
         logging: process.env.NODE_ENV === "development",
     };
