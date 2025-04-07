@@ -13,6 +13,7 @@ import { DisputeModule } from "./modules/dispute/dispute.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { WithdrawalsModule } from "./modules/withdrawals/withdrawals.module";
 import { DatabaseModule } from "./modules/database/database.module";
+import { HealthModule } from "./modules/health/health.module";
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { DatabaseModule } from "./modules/database/database.module";
     // Since we're already setting up the connection in the AppModule
     // We'll uncomment it once we've fixed the issue
     // DatabaseModule,
+    HealthModule,
     CommonModule,
     AuthModule,
     FansModule,

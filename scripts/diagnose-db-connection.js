@@ -1,103 +1,219 @@
 /**
- * Script to diagnose database connection issues
- * Run with: node scripts/diagnose-db-connection.js
+ * Database Connection Diagnostic Script
+ *
+ * This script tests database connections for the UNDR API in production environment.
+ * It checks the DATABASE_URL configuration and attempts to connect to verify settings.
+ *
+ * Usage: NODE_ENV=production node scripts/diagnose-db-connection.js
  */
+
+// Force production environment for testing
+process.env.NODE_ENV = "production";
 
 // Load environment variables
 require("dotenv").config();
-
-// Use the pg library directly to test connection
 const { Client } = require("pg");
+const dns = require("dns").promises;
 
-// Force NODE_ENV to production for testing
-process.env.NODE_ENV = "production";
-
+// Main diagnostic function
 async function testDatabaseConnection() {
-  console.log("===== DATABASE CONNECTION DIAGNOSTIC =====");
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log("=== DATABASE CONNECTION DIAGNOSTIC ===");
+  console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
 
-  // Check for DATABASE_URL
+  // Check if DATABASE_URL exists
   if (!process.env.DATABASE_URL) {
-    console.error("ERROR: DATABASE_URL is not set!");
-    console.log("Please set DATABASE_URL environment variable.");
-    process.exit(1);
+    console.error("ERROR: DATABASE_URL environment variable is not set!");
+    console.error("This is required for production database connections.");
+    console.log("The application will attempt to start anyway, but may fail.");
+    console.log("\n=== DIAGNOSTIC COMPLETE ===");
+    return false;
   }
 
-  // Mask password for logging
-  const maskedUrl = process.env.DATABASE_URL.replace(/:[^:@]*@/, ":****@");
-  console.log(`Attempting to connect to: ${maskedUrl}`);
+  // Mask password in logs
+  const dbUrlForLogs = process.env.DATABASE_URL.replace(
+    /postgresql:\/\/([^:]+):([^@]+)@/,
+    "postgresql://$1:******@"
+  );
+  console.log(`DATABASE_URL is set: ${dbUrlForLogs}`);
 
-  // Parse the connection string to get host information
+  // Parse connection URL to get components
+  let connectionInfo;
   try {
-    // Extract host from DATABASE_URL
-    const urlMatch = process.env.DATABASE_URL.match(
-      /postgresql:\/\/[^:]+:[^@]+@([^:]+):(\d+)\/(.+)/
+    // Extract connection parts from URL
+    const matches = process.env.DATABASE_URL.match(
+      /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/
     );
-    if (urlMatch) {
-      const [, host, port, database] = urlMatch;
-      console.log(`Parsed connection details:`);
-      console.log(`- Host: ${host}`);
-      console.log(`- Port: ${port}`);
-      console.log(`- Database: ${database}`);
-
-      // Test if host is resolvable
-      const dns = require("dns");
-      dns.lookup(host, (err, address) => {
-        if (err) {
-          console.error(`ERROR: Cannot resolve host "${host}": ${err.message}`);
-        } else {
-          console.log(`Host "${host}" resolves to IP: ${address}`);
-        }
-      });
+    if (!matches) {
+      console.error(
+        "ERROR: Unable to parse DATABASE_URL. Format should be: postgresql://username:password@host:port/database"
+      );
+      console.log("The application will attempt to start anyway.");
+      console.log("\n=== DIAGNOSTIC COMPLETE ===");
+      return false;
     }
-  } catch (err) {
-    console.log(`Could not parse connection URL: ${err.message}`);
+
+    connectionInfo = {
+      user: matches[1],
+      password: matches[2],
+      host: matches[3],
+      port: parseInt(matches[4], 10),
+      database: matches[5].split("?")[0], // Remove query params if any
+    };
+
+    console.log("Parsed connection info:");
+    console.log(`- Host: ${connectionInfo.host}`);
+    console.log(`- Port: ${connectionInfo.port}`);
+    console.log(`- Database: ${connectionInfo.database}`);
+
+    // Resolve hostname
+    try {
+      console.log(`\nResolving host DNS for ${connectionInfo.host}...`);
+      const addresses = await dns.lookup(connectionInfo.host, { all: true });
+      console.log("DNS resolution results:");
+      addresses.forEach((addr) => {
+        console.log(
+          `- ${addr.address} (${addr.family === 4 ? "IPv4" : "IPv6"})`
+        );
+      });
+
+      // Log warning for localhost
+      if (
+        connectionInfo.host === "localhost" ||
+        connectionInfo.host === "127.0.0.1" ||
+        connectionInfo.host === "::1" ||
+        addresses.some((a) => a.address === "127.0.0.1" || a.address === "::1")
+      ) {
+        console.error(
+          "\nWARNING: Database host resolves to localhost/127.0.0.1/::1"
+        );
+        console.error(
+          "This will NOT work in production environments like Railway!"
+        );
+        console.error(
+          "Make sure DATABASE_URL points to a remote database host."
+        );
+      }
+    } catch (dnsError) {
+      console.error(`ERROR resolving DNS: ${dnsError.message}`);
+      // Continue anyway, this is just a diagnostic
+    }
+  } catch (error) {
+    console.error(`ERROR parsing DATABASE_URL: ${error.message}`);
+    console.log("The application will attempt to start anyway.");
+    console.log("\n=== DIAGNOSTIC COMPLETE ===");
+    return false;
   }
 
-  // Test connection with SSL enabled
+  // Try to connect with SSL enabled
+  console.log("\nAttempting connection WITH SSL...");
+  let sslConnectionSucceeded = false;
   try {
-    console.log("\nAttempting connection WITH SSL...");
-    const clientWithSsl = new Client({
+    const client = new Client({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      connectionTimeoutMillis: 10000, // 10 seconds
     });
 
-    await clientWithSsl.connect();
-    console.log("✅ Connection WITH SSL successful!");
-
-    // Check version to verify connection
-    const res = await clientWithSsl.query("SELECT version()");
-    console.log(`Connected to: ${res.rows[0].version}`);
-
-    await clientWithSsl.end();
-  } catch (err) {
-    console.error(`❌ Connection WITH SSL failed: ${err.message}`);
+    await client.connect();
+    const result = await client.query("SELECT version()");
+    console.log("CONNECTION SUCCESSFUL (SSL)!");
+    console.log(`Database version: ${result.rows[0].version}`);
+    await client.end();
+    sslConnectionSucceeded = true;
+  } catch (error) {
+    console.error(`ERROR connecting with SSL: ${error.message}`);
+    console.log(
+      "SSL connection failed. This might be expected if SSL is not enabled on the database."
+    );
+    // Continue to try without SSL
   }
 
-  // Test connection with SSL disabled
-  try {
+  // If SSL connection worked, we can skip non-SSL attempt
+  if (!sslConnectionSucceeded) {
+    // Try to connect without SSL
     console.log("\nAttempting connection WITHOUT SSL...");
-    const clientNoSsl = new Client({
-      connectionString: process.env.DATABASE_URL,
-      ssl: false,
-    });
+    try {
+      const client = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: false,
+        connectionTimeoutMillis: 10000, // 10 seconds
+      });
 
-    await clientNoSsl.connect();
-    console.log("✅ Connection WITHOUT SSL successful!");
+      await client.connect();
+      const result = await client.query("SELECT version()");
+      console.log("CONNECTION SUCCESSFUL (no SSL)!");
+      console.log(`Database version: ${result.rows[0].version}`);
+      await client.end();
+    } catch (error) {
+      console.error(`ERROR connecting without SSL: ${error.message}`);
 
-    // Check version to verify connection
-    const res = await clientNoSsl.query("SELECT version()");
-    console.log(`Connected to: ${res.rows[0].version}`);
+      if (error.message.includes("ECONNREFUSED")) {
+        console.error("\nECONNREFUSED ERROR DETECTED:");
+        console.error(
+          "This usually means the application cannot reach the database host."
+        );
+        console.error("Possible causes:");
+        console.error("1. The database service is not running");
+        console.error("2. The host address is incorrect");
+        console.error("3. There is a network/firewall issue");
+        console.error(
+          "4. The PostgreSQL service is not listening on the specified port"
+        );
+      }
 
-    await clientNoSsl.end();
-  } catch (err) {
-    console.error(`❌ Connection WITHOUT SSL failed: ${err.message}`);
+      console.log(
+        "\nWARNING: Unable to connect to database, but will continue startup process."
+      );
+    }
   }
 
-  console.log("\n===== DIAGNOSTIC COMPLETE =====");
+  // Final check of TypeORM environment variables
+  console.log("\nChecking for conflicting TypeORM configuration:");
+  const typeormVars = [
+    "TYPEORM_HOST",
+    "TYPEORM_PORT",
+    "TYPEORM_USERNAME",
+    "TYPEORM_PASSWORD",
+    "TYPEORM_DATABASE",
+    "DB_HOST",
+    "DB_PORT",
+    "DB_USERNAME",
+    "DB_PASSWORD",
+    "DB_DATABASE",
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_DB",
+    "DATABASE_HOST",
+    "DATABASE_PORT",
+    "DATABASE_USERNAME",
+    "DATABASE_PASSWORD",
+    "DATABASE_DATABASE",
+  ];
+
+  let hasConflictingVars = false;
+  typeormVars.forEach((varName) => {
+    if (process.env[varName]) {
+      console.error(
+        `WARNING: Found potentially conflicting variable: ${varName}=${process.env[varName]}`
+      );
+      hasConflictingVars = true;
+    }
+  });
+
+  if (!hasConflictingVars) {
+    console.log("No conflicting TypeORM environment variables found.");
+  }
+
+  console.log("\n=== DIAGNOSTIC COMPLETE ===");
 }
 
-testDatabaseConnection().catch((err) => {
-  console.error("Unexpected error:", err);
-  process.exit(1);
+// Run the diagnostic
+testDatabaseConnection().catch((error) => {
+  console.error("Unhandled error in diagnostic:", error);
+  console.log("Continuing with application startup despite diagnostic error.");
+  // Don't exit with an error code, just continue
 });

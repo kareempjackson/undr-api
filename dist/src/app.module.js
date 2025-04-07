@@ -21,6 +21,7 @@ const tasks_module_1 = require("./tasks/tasks.module");
 const dispute_module_1 = require("./modules/dispute/dispute.module");
 const notification_module_1 = require("./modules/notification/notification.module");
 const withdrawals_module_1 = require("./modules/withdrawals/withdrawals.module");
+const health_module_1 = require("./modules/health/health.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -76,6 +77,7 @@ AppModule = __decorate([
                     };
                 },
             }),
+            health_module_1.HealthModule,
             common_module_1.CommonModule,
             auth_module_1.AuthModule,
             fans_module_1.FansModule,

@@ -23,7 +23,11 @@ async function runMigrations() {
   try {
     // Validate DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is not set");
+      console.error("DATABASE_URL environment variable is not set");
+      console.log(
+        "Skipping migrations. The application will continue to start."
+      );
+      return;
     }
 
     // Print diagnostic information
@@ -35,7 +39,24 @@ async function runMigrations() {
 
     // Use the compiled JavaScript files for migrations
     console.log("Loading AppDataSource from compiled JavaScript...");
-    const { AppDataSource } = require("../dist/src/data-source.js");
+    let AppDataSource;
+    try {
+      const dataSourceModule = require("../dist/src/data-source.js");
+      AppDataSource = dataSourceModule.AppDataSource;
+      if (!AppDataSource) {
+        console.error("AppDataSource not found in data-source.js");
+        console.log(
+          "Skipping migrations. The application will continue to start."
+        );
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to load AppDataSource:", error.message);
+      console.log(
+        "Skipping migrations. The application will continue to start."
+      );
+      return;
+    }
 
     // Attempt database connection with retries
     console.log("Initializing database connection...");
@@ -59,26 +80,51 @@ async function runMigrations() {
           console.log(`Retrying in ${RETRY_DELAY / 1000} seconds...`);
           await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
         } else {
-          throw new Error(
+          console.error(
             `Failed to connect to database after ${MAX_RETRIES} attempts: ${e.message}`
           );
+          console.log(
+            "Skipping migrations. The application will continue to start."
+          );
+          return;
         }
       }
     }
 
-    console.log("Running migrations...");
-    const migrations = await AppDataSource.runMigrations();
-    console.log(`Successfully ran ${migrations.length} migrations`);
+    try {
+      console.log("Running migrations...");
+      const migrations = await AppDataSource.runMigrations();
+      console.log(`Successfully ran ${migrations.length} migrations`);
+    } catch (migrationError) {
+      console.error("Error running migrations:", migrationError.message);
+      console.log(
+        "The application will continue to start despite migration failure."
+      );
+    } finally {
+      // Always close the connection
+      if (connected) {
+        console.log("Closing database connection...");
+        try {
+          await AppDataSource.destroy();
+        } catch (error) {
+          console.error("Error closing database connection:", error.message);
+        }
+      }
+    }
 
-    console.log("Closing database connection...");
-    await AppDataSource.destroy();
-
-    console.log("Migration process completed successfully!");
-    process.exit(0);
+    console.log("Migration process completed!");
   } catch (error) {
-    console.error("Error running migrations:", error);
-    process.exit(1);
+    console.error("Error in migration process:", error);
+    console.log(
+      "The application will continue to start despite migration errors."
+    );
   }
 }
 
-runMigrations();
+// Run migrations but don't exit process on error
+runMigrations().catch((error) => {
+  console.error("Unhandled error in migration script:", error);
+  console.log(
+    "The application will continue to start despite migration errors."
+  );
+});

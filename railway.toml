@@ -6,6 +6,8 @@ buildCommand = "npm run build"
 startCommand = "NODE_ENV=production node scripts/diagnose-db-connection.js && NODE_ENV=production npm run migration:prod && NODE_ENV=production node dist/src/main"
 healthcheckPath = "/"
 healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
 
 [nixpacks]
 nodejs_version = "20"
