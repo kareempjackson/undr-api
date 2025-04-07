@@ -38,10 +38,7 @@ async function bootstrap() {
       );
     }
 
-    // Remove direct migrations in bootstrap function
-    // This should be handled by a separate command/process in production
-    // See: migration:run script in package.json
-
+    // Create the NestJS application
     const app = await NestFactory.create(AppModule, {
       bodyParser: false, // Disable built-in bodyParser for custom handling
     });
@@ -74,10 +71,26 @@ async function bootstrap() {
       next();
     });
 
+    // Add a special middleware for health checks that will bypass other middleware
+    // This ensures Railway can always reach the healthcheck endpoint
+    app.use((req, res, next) => {
+      // Simple health check endpoint for Railway
+      if (req.url === "/" && req.method === "GET") {
+        console.log("Health check request received");
+        return res.status(200).send("OK");
+      }
+      next();
+    });
+
     // Enforce HTTPS in production
     // This middleware will redirect all HTTP requests to HTTPS
     if (process.env.NODE_ENV === "production") {
       app.use((req, res, next) => {
+        // Skip HTTPS redirect for health checks
+        if (req.url === "/" && req.method === "GET") {
+          return next();
+        }
+
         // Check for HTTP protocol
         if (!req.secure && req.headers["x-forwarded-proto"] !== "https") {
           // Redirect to HTTPS with 301 status (permanent redirect)
@@ -134,6 +147,11 @@ async function bootstrap() {
 
     // Set security headers for all responses
     app.use((req, res, next) => {
+      // Skip for health check endpoint
+      if (req.url === "/" && req.method === "GET") {
+        return next();
+      }
+
       // HTTP Strict Transport Security
       res.setHeader(
         "Strict-Transport-Security",
@@ -162,7 +180,8 @@ async function bootstrap() {
 
     // Start the application
     const port = process.env.PORT || 3001;
-    await app.listen(port);
+    console.log(`Starting server on port ${port}...`);
+    await app.listen(port, "0.0.0.0");
     console.log(`Application is running on: ${await app.getUrl()}`);
   } catch (error) {
     console.error("Application bootstrap error:", error);

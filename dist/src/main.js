@@ -49,8 +49,18 @@ async function bootstrap() {
             }
             next();
         });
+        app.use((req, res, next) => {
+            if (req.url === "/" && req.method === "GET") {
+                console.log("Health check request received");
+                return res.status(200).send("OK");
+            }
+            next();
+        });
         if (process.env.NODE_ENV === "production") {
             app.use((req, res, next) => {
+                if (req.url === "/" && req.method === "GET") {
+                    return next();
+                }
                 if (!req.secure && req.headers["x-forwarded-proto"] !== "https") {
                     const httpsUrl = `https://${req.headers.host}${req.url}`;
                     return res.redirect(301, httpsUrl);
@@ -89,6 +99,9 @@ async function bootstrap() {
         });
         console.log(`CORS enabled for origins: ${frontendUrl}, ${frontendDevUrl}, ${frontendAltUrl}, ${frontendAltDevUrl}, ${adminUrl}, ${productionUrls.join(", ")}`);
         app.use((req, res, next) => {
+            if (req.url === "/" && req.method === "GET") {
+                return next();
+            }
             res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
             res.setHeader("X-Content-Type-Options", "nosniff");
             res.setHeader("X-XSS-Protection", "1; mode=block");
@@ -105,7 +118,8 @@ async function bootstrap() {
         const document = swagger_1.SwaggerModule.createDocument(app, config);
         swagger_1.SwaggerModule.setup("api", app, document);
         const port = process.env.PORT || 3001;
-        await app.listen(port);
+        console.log(`Starting server on port ${port}...`);
+        await app.listen(port, "0.0.0.0");
         console.log(`Application is running on: ${await app.getUrl()}`);
     }
     catch (error) {
