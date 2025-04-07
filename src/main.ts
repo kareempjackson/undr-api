@@ -15,9 +15,10 @@ async function bootstrap() {
   try {
     // Try to run migrations in production
     if (process.env.NODE_ENV === "production" && process.env.DATABASE_URL) {
-      const AppDataSource = require("./data-source").AppDataSource;
       try {
         console.log("Attempting to run migrations...");
+        // Important: Directly reference the compiled JS files in dist directory
+        const { AppDataSource } = require("../dist/data-source.js");
         await AppDataSource.initialize();
         await AppDataSource.runMigrations();
         console.log("Migrations completed successfully");

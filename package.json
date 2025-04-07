@@ -28,7 +28,10 @@
     "migration:revert": "npm run typeorm -- migration:revert",
     "generate:key": "ts-node -r tsconfig-paths/register ./scripts/generate-encryption-key.ts",
     "check:encrypted": "ts-node -r tsconfig-paths/register ./scripts/check-encrypted-data.ts",
-    "fix:encrypted": "ts-node -r tsconfig-paths/register ./scripts/fix-encrypted-data.ts"
+    "fix:encrypted": "ts-node -r tsconfig-paths/register ./scripts/fix-encrypted-data.ts",
+    "test:api": "jest --config=jest.api.config.js",
+    "test:api:watch": "jest --config=jest.api.config.js --watch",
+    "test:api:cov": "jest --config=jest.api.config.js --coverage"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.12",
