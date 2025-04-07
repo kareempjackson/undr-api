@@ -19,19 +19,49 @@ DatabaseModule = __decorate([
             typeorm_1.TypeOrmModule.forRootAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
-                useFactory: (configService) => ({
-                    type: "postgres",
-                    host: configService.get("DATABASE_HOST", "localhost"),
-                    port: configService.get("DATABASE_PORT", 5432),
-                    username: configService.get("POSTGRES_USER", "postgres"),
-                    password: configService.get("POSTGRES_PASSWORD", "postgres"),
-                    database: configService.get("POSTGRES_DB", "ghostpay"),
-                    entities: [__dirname + "/../../**/*.entity{.ts,.js}"],
-                    synchronize: false,
-                    migrationsRun: configService.get("NODE_ENV") === "production",
-                    migrations: [__dirname + "/../../migrations/*{.ts,.js}"],
-                    logging: configService.get("NODE_ENV") === "development",
-                }),
+                useFactory: (configService) => {
+                    const nodeEnv = configService.get("NODE_ENV");
+                    const databaseUrl = configService.get("DATABASE_URL");
+                    const isProduction = nodeEnv === "production";
+                    console.log(`[DatabaseModule] NODE_ENV: ${nodeEnv}`);
+                    console.log(`[DatabaseModule] DATABASE_URL is ${databaseUrl ? "set" : "NOT set"}`);
+                    if (databaseUrl) {
+                        const dbUrlForLogs = databaseUrl.replace(/postgresql:\/\/([^:]+):([^@]+)@/, "postgresql://$1:******@");
+                        console.log(`[DatabaseModule] Using DATABASE_URL: ${dbUrlForLogs}`);
+                        try {
+                            new URL(databaseUrl);
+                            return {
+                                type: "postgres",
+                                url: databaseUrl,
+                                entities: [__dirname + "/../../**/*.entity{.ts,.js}"],
+                                synchronize: false,
+                                migrationsRun: isProduction,
+                                migrations: [__dirname + "/../../migrations/*{.ts,.js}"],
+                                logging: nodeEnv === "development",
+                                ssl: isProduction ? { rejectUnauthorized: false } : false,
+                                connectTimeoutMS: 30000,
+                            };
+                        }
+                        catch (error) {
+                            console.error(`[DatabaseModule] Invalid DATABASE_URL format: ${error.message}`);
+                        }
+                    }
+                    console.log("[DatabaseModule] Using individual connection parameters");
+                    return {
+                        type: "postgres",
+                        host: configService.get("DATABASE_HOST", "localhost"),
+                        port: configService.get("DATABASE_PORT", 5432),
+                        username: configService.get("POSTGRES_USER", "postgres"),
+                        password: configService.get("POSTGRES_PASSWORD", "postgres"),
+                        database: configService.get("POSTGRES_DB", "ghostpay"),
+                        entities: [__dirname + "/../../**/*.entity{.ts,.js}"],
+                        synchronize: false,
+                        migrationsRun: isProduction,
+                        migrations: [__dirname + "/../../migrations/*{.ts,.js}"],
+                        logging: nodeEnv === "development",
+                        connectTimeoutMS: 30000,
+                    };
+                },
             }),
         ],
     })

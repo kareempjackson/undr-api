@@ -7,12 +7,37 @@ import { setEncryptionService } from "./modules/common/transformers/encrypted-co
 import { EncryptionService } from "./modules/security/encryption.service";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import * as dotenv from "dotenv";
+import * as os from "os";
 
 // Load environment variables
 dotenv.config();
 
 async function bootstrap() {
   try {
+    // Log system information for diagnostics
+    console.log("⚡️ System Diagnostics:");
+    console.log(`- OS Platform: ${os.platform()} ${os.release()}`);
+    console.log(
+      `- Total Memory: ${Math.round(os.totalmem() / 1024 / 1024)} MB`
+    );
+    console.log(`- Free Memory: ${Math.round(os.freemem() / 1024 / 1024)} MB`);
+    console.log(`- Node Version: ${process.version}`);
+    console.log(`- Environment: ${process.env.NODE_ENV}`);
+
+    // Log database connection info
+    if (process.env.DATABASE_URL) {
+      console.log("🔌 Database Connection:");
+      const maskedDbUrl = process.env.DATABASE_URL.replace(
+        /:[^:@]*@/,
+        ":****@"
+      );
+      console.log(`- URL: ${maskedDbUrl}`);
+    } else {
+      console.warn(
+        "⚠️ Warning: DATABASE_URL not set. Using fallback connection parameters."
+      );
+    }
+
     // Remove direct migrations in bootstrap function
     // This should be handled by a separate command/process in production
     // See: migration:run script in package.json

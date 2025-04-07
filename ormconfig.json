@@ -5,9 +5,11 @@
   "username": "postgres",
   "password": "postgres",
   "database": "ghostpay",
-  "entities": ["src/**/*.entity{.ts,.js}"],
-  "migrations": ["src/migrations/*.ts"],
+  "entities": ["dist/**/*.entity.js"],
+  "migrations": ["dist/migrations/*.js"],
   "cli": {
     "migrationsDir": "src/migrations"
-  }
+  },
+  "ssl": false,
+  "synchronize": false
 } 

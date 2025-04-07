@@ -18,6 +18,9 @@ const migrationsPath = isProduction
 // Check if DATABASE_URL is provided (Railway or other PaaS)
 if (process.env.DATABASE_URL) {
   console.log("Using DATABASE_URL for database connection");
+  console.log(
+    `DATABASE_URL: ${process.env.DATABASE_URL.replace(/:[^:@]*@/, ":****@")}`
+  ); // Log the URL with password masked
 
   // Only use SSL in production environment or if explicitly set
   const useSSL = process.env.USE_SSL === "true" || isProduction;
@@ -31,6 +34,19 @@ if (process.env.DATABASE_URL) {
     synchronize: false,
     logging: process.env.NODE_ENV === "development",
     ssl: useSSL ? { rejectUnauthorized: false } : false,
+    connectTimeoutMS: 20000, // 20 seconds connection timeout
+    extra: {
+      // Add connection pool settings
+      max: 20,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000,
+      // Handle retries at the driver level
+      retry: {
+        maxRetries: 10,
+        initialDelayMs: 1000,
+        maxDelayMs: 5000,
+      },
+    },
   } as DataSourceOptions;
 } else {
   console.log("Using individual connection parameters for database");
@@ -47,7 +63,18 @@ if (process.env.DATABASE_URL) {
     migrations: migrationsPath,
     synchronize: false,
     logging: process.env.NODE_ENV === "development",
+    connectTimeoutMS: 20000, // 20 seconds connection timeout
+    extra: {
+      // Add connection pool settings
+      max: 20,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 10000,
+    },
   } as DataSourceOptions;
 }
 
+// Create and export the data source
 export const AppDataSource = new DataSource(dataSourceOptions);
+
+// NOTE: Error handling for database connections is managed by NestJS's TypeOrmModule
+// which already has built-in retry mechanisms

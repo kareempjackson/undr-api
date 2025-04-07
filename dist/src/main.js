@@ -9,9 +9,24 @@ const encrypted_column_factory_1 = require("./modules/common/transformers/encryp
 const encryption_service_1 = require("./modules/security/encryption.service");
 const platform_socket_io_1 = require("@nestjs/platform-socket.io");
 const dotenv = require("dotenv");
+const os = require("os");
 dotenv.config();
 async function bootstrap() {
     try {
+        console.log("⚡️ System Diagnostics:");
+        console.log(`- OS Platform: ${os.platform()} ${os.release()}`);
+        console.log(`- Total Memory: ${Math.round(os.totalmem() / 1024 / 1024)} MB`);
+        console.log(`- Free Memory: ${Math.round(os.freemem() / 1024 / 1024)} MB`);
+        console.log(`- Node Version: ${process.version}`);
+        console.log(`- Environment: ${process.env.NODE_ENV}`);
+        if (process.env.DATABASE_URL) {
+            console.log("🔌 Database Connection:");
+            const maskedDbUrl = process.env.DATABASE_URL.replace(/:[^:@]*@/, ":****@");
+            console.log(`- URL: ${maskedDbUrl}`);
+        }
+        else {
+            console.warn("⚠️ Warning: DATABASE_URL not set. Using fallback connection parameters.");
+        }
         const app = await core_1.NestFactory.create(app_module_1.AppModule, {
             bodyParser: false,
         });

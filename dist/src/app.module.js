@@ -21,7 +21,6 @@ const tasks_module_1 = require("./tasks/tasks.module");
 const dispute_module_1 = require("./modules/dispute/dispute.module");
 const notification_module_1 = require("./modules/notification/notification.module");
 const withdrawals_module_1 = require("./modules/withdrawals/withdrawals.module");
-const database_module_1 = require("./modules/database/database.module");
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
@@ -37,19 +36,31 @@ AppModule = __decorate([
                 inject: [config_1.ConfigService],
                 useFactory: (configService) => {
                     const databaseUrl = configService.get("DATABASE_URL");
+                    const isProduction = configService.get("NODE_ENV") === "production";
+                    console.log(`[AppModule] Database connection info:`);
+                    console.log(`- NODE_ENV: ${configService.get("NODE_ENV")}`);
+                    console.log(`- Has DATABASE_URL: ${!!databaseUrl}`);
                     if (databaseUrl) {
+                        const maskedUrl = databaseUrl.replace(/:[^:@]*@/, ":****@");
+                        console.log(`- DATABASE_URL: ${maskedUrl}`);
+                    }
+                    if (databaseUrl) {
+                        console.log("[AppModule] Using DATABASE_URL for connection");
                         return {
                             type: "postgres",
                             url: databaseUrl,
                             entities: ["dist/**/*.entity{.ts,.js}"],
-                            synchronize: configService.get("NODE_ENV") !== "production",
+                            synchronize: false,
                             logging: configService.get("NODE_ENV") === "development",
                             autoLoadEntities: true,
-                            ssl: process.env.NODE_ENV === "production"
-                                ? { rejectUnauthorized: false }
-                                : false,
+                            connectTimeoutMS: 30000,
+                            ssl: isProduction ? { rejectUnauthorized: false } : false,
                         };
                     }
+                    console.log("[AppModule] Using individual parameters for database connection");
+                    console.log(`- Host: ${configService.get("POSTGRES_HOST") || "localhost"}`);
+                    console.log(`- Port: ${parseInt(configService.get("POSTGRES_PORT") || "5432")}`);
+                    console.log(`- Database: ${configService.get("POSTGRES_DB") || "ghostpay"}`);
                     return {
                         type: "postgres",
                         host: configService.get("POSTGRES_HOST") || "localhost",
@@ -58,9 +69,10 @@ AppModule = __decorate([
                         password: configService.get("POSTGRES_PASSWORD"),
                         database: configService.get("POSTGRES_DB") || "ghostpay",
                         entities: ["dist/**/*.entity{.ts,.js}"],
-                        synchronize: configService.get("NODE_ENV") !== "production",
+                        synchronize: false,
                         logging: configService.get("NODE_ENV") === "development",
                         autoLoadEntities: true,
+                        connectTimeoutMS: 30000,
                     };
                 },
             }),
@@ -75,7 +87,6 @@ AppModule = __decorate([
             dispute_module_1.DisputeModule,
             notification_module_1.NotificationModule,
             withdrawals_module_1.WithdrawalsModule,
-            database_module_1.DatabaseModule,
         ],
         controllers: [],
         providers: [],

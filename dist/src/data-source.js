@@ -14,6 +14,7 @@ const migrationsPath = isProduction
     : ["dist/migrations/*.js", "src/migrations/*.ts"];
 if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for database connection");
+    console.log(`DATABASE_URL: ${process.env.DATABASE_URL.replace(/:[^:@]*@/, ":****@")}`);
     const useSSL = process.env.USE_SSL === "true" || isProduction;
     console.log(`SSL connections: ${useSSL ? "enabled" : "disabled"}`);
     dataSourceOptions = {
@@ -24,6 +25,17 @@ if (process.env.DATABASE_URL) {
         synchronize: false,
         logging: process.env.NODE_ENV === "development",
         ssl: useSSL ? { rejectUnauthorized: false } : false,
+        connectTimeoutMS: 20000,
+        extra: {
+            max: 20,
+            connectionTimeoutMillis: 10000,
+            idleTimeoutMillis: 10000,
+            retry: {
+                maxRetries: 10,
+                initialDelayMs: 1000,
+                maxDelayMs: 5000,
+            },
+        },
     };
 }
 else {
@@ -39,6 +51,12 @@ else {
         migrations: migrationsPath,
         synchronize: false,
         logging: process.env.NODE_ENV === "development",
+        connectTimeoutMS: 20000,
+        extra: {
+            max: 20,
+            connectionTimeoutMillis: 10000,
+            idleTimeoutMillis: 10000,
+        },
     };
 }
 exports.AppDataSource = new typeorm_1.DataSource(dataSourceOptions);
