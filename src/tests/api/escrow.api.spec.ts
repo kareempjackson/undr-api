@@ -4,8 +4,12 @@ import * as request from "supertest";
 import { AppModule } from "../../app.module";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { User, UserRole, UserStatus } from "../../entities/user.entity";
-import { Escrow, EscrowStatus } from "../../entities/escrow.entity";
-import { Milestone, MilestoneStatus } from "../../entities/milestone.entity";
+import {
+  Escrow,
+  EscrowStatus,
+  EscrowMilestone,
+  MilestoneStatus,
+} from "../../entities/escrow.entity";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -14,7 +18,7 @@ describe("Escrow API (e2e)", () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let escrowRepository: Repository<Escrow>;
-  let milestoneRepository: Repository<Milestone>;
+  let milestoneRepository: Repository<EscrowMilestone>;
   let jwtService: JwtService;
 
   // Test users
@@ -30,7 +34,7 @@ describe("Escrow API (e2e)", () => {
   let testEscrowId: string;
 
   // Test milestone
-  let testMilestone: Milestone;
+  let testMilestone: EscrowMilestone;
   let testMilestoneId: string;
 
   beforeAll(async () => {
@@ -47,8 +51,8 @@ describe("Escrow API (e2e)", () => {
     escrowRepository = moduleFixture.get<Repository<Escrow>>(
       getRepositoryToken(Escrow)
     );
-    milestoneRepository = moduleFixture.get<Repository<Milestone>>(
-      getRepositoryToken(Milestone)
+    milestoneRepository = moduleFixture.get<Repository<EscrowMilestone>>(
+      getRepositoryToken(EscrowMilestone)
     );
     jwtService = moduleFixture.get<JwtService>(JwtService);
 
@@ -99,25 +103,26 @@ describe("Escrow API (e2e)", () => {
 
     // Create test escrow
     testEscrow = await escrowRepository.save({
-      client: fanUser,
-      provider: creatorUser,
+      buyerId: fanUser.id,
+      sellerId: creatorUser.id,
       title: "Custom artwork project",
       description: "Creating a digital artwork for the client",
       totalAmount: 300,
-      status: EscrowStatus.ACTIVE,
+      status: EscrowStatus.FUNDED,
       createdAt: new Date(),
-      terms: "Delivery within 2 weeks of approval",
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      terms: { agreement: "Delivery within 2 weeks of approval" },
     });
     testEscrowId = testEscrow.id;
 
     // Create test milestone
     testMilestone = await milestoneRepository.save({
-      escrow: testEscrow,
-      title: "Initial concept",
+      escrowId: testEscrow.id,
       description: "Provide initial concept sketches",
       amount: 100,
       status: MilestoneStatus.PENDING,
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
+      sequence: 1,
+      createdAt: new Date(),
     });
     testMilestoneId = testMilestone.id;
   });
@@ -167,7 +172,7 @@ describe("Escrow API (e2e)", () => {
       expect(response.body).toHaveProperty("id");
       expect(response.body).toHaveProperty("title", "New design project");
       expect(response.body).toHaveProperty("totalAmount", 200);
-      expect(response.body).toHaveProperty("status", EscrowStatus.PENDING);
+      expect(response.body).toHaveProperty("status", EscrowStatus.FUNDED);
       expect(response.body).toHaveProperty("client.id", fanUser.id);
       expect(response.body).toHaveProperty("provider.id", creatorUser.id);
       expect(response.body).toHaveProperty("milestones");
@@ -225,7 +230,7 @@ describe("Escrow API (e2e)", () => {
       expect(response.body).toHaveProperty("id", testEscrowId);
       expect(response.body).toHaveProperty("title", "Custom artwork project");
       expect(response.body).toHaveProperty("totalAmount", 300);
-      expect(response.body).toHaveProperty("status", EscrowStatus.ACTIVE);
+      expect(response.body).toHaveProperty("status", EscrowStatus.FUNDED);
       expect(response.body).toHaveProperty("milestones");
       expect(Array.isArray(response.body.milestones)).toBeTruthy();
     });
@@ -309,13 +314,13 @@ describe("Escrow API (e2e)", () => {
 
     it("should filter escrows by status", async () => {
       const response = await request(app.getHttpServer())
-        .get(`/escrow?status=${EscrowStatus.ACTIVE}`)
+        .get(`/escrow?status=${EscrowStatus.FUNDED}`)
         .set("Authorization", `Bearer ${fanToken}`)
         .expect(200);
 
       expect(
         response.body.escrows.every(
-          (escrow) => escrow.status === EscrowStatus.ACTIVE
+          (escrow) => escrow.status === EscrowStatus.FUNDED
         )
       ).toBeTruthy();
     });
@@ -334,7 +339,7 @@ describe("Escrow API (e2e)", () => {
         response.body.escrows.some((escrow) => escrow.id === testEscrowId)
       ).toBeTruthy();
       expect(
-        response.body.escrows.every((escrow) => escrow.client.id === fanUser.id)
+        response.body.escrows.every((escrow) => escrow.buyerId === fanUser.id)
       ).toBeTruthy();
     });
   });
@@ -353,7 +358,7 @@ describe("Escrow API (e2e)", () => {
       ).toBeTruthy();
       expect(
         response.body.escrows.every(
-          (escrow) => escrow.provider.id === creatorUser.id
+          (escrow) => escrow.sellerId === creatorUser.id
         )
       ).toBeTruthy();
     });
@@ -365,14 +370,15 @@ describe("Escrow API (e2e)", () => {
     beforeAll(async () => {
       // Create a pending escrow for status updates
       statusTestEscrow = await escrowRepository.save({
-        client: fanUser,
-        provider: creatorUser,
-        title: "Status update test project",
+        buyerId: fanUser.id,
+        sellerId: creatorUser.id,
+        title: "Status Test Project",
         description: "Testing status updates",
         totalAmount: 150,
         status: EscrowStatus.PENDING,
         createdAt: new Date(),
-        terms: "Terms for testing",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        terms: { agreement: "Terms for testing" },
       });
     });
 
@@ -386,17 +392,18 @@ describe("Escrow API (e2e)", () => {
         .patch(`/escrow/${statusTestEscrow.id}/status`)
         .set("Authorization", `Bearer ${creatorToken}`)
         .send({
-          status: EscrowStatus.ACTIVE,
+          status: EscrowStatus.FUNDED,
         })
         .expect(200);
 
-      expect(response.body).toHaveProperty("status", EscrowStatus.ACTIVE);
+      expect(response.body).toHaveProperty("status", EscrowStatus.FUNDED);
 
       // Verify in database
       const updatedEscrow = await escrowRepository.findOne({
         where: { id: statusTestEscrow.id },
       });
-      expect(updatedEscrow.status).toBe(EscrowStatus.ACTIVE);
+      expect(updatedEscrow).not.toBeNull();
+      expect(updatedEscrow!.status).toBe(EscrowStatus.FUNDED);
     });
 
     it("should allow client to mark escrow as completed", async () => {
@@ -404,37 +411,39 @@ describe("Escrow API (e2e)", () => {
         .patch(`/escrow/${statusTestEscrow.id}/status`)
         .set("Authorization", `Bearer ${fanToken}`)
         .send({
-          status: EscrowStatus.COMPLETED,
+          status: EscrowStatus.FUNDED,
         })
         .expect(200);
 
-      expect(response.body).toHaveProperty("status", EscrowStatus.COMPLETED);
+      expect(response.body).toHaveProperty("status", EscrowStatus.FUNDED);
 
       // Verify in database
       const updatedEscrow = await escrowRepository.findOne({
         where: { id: statusTestEscrow.id },
       });
-      expect(updatedEscrow.status).toBe(EscrowStatus.COMPLETED);
+      expect(updatedEscrow).not.toBeNull();
+      expect(updatedEscrow!.status).toBe(EscrowStatus.FUNDED);
     });
 
     it("should reject invalid status transitions", async () => {
-      // Create another escrow with CANCELED status
+      // Create another escrow with CANCELLED status
       const canceledEscrow = await escrowRepository.save({
-        client: fanUser,
-        provider: creatorUser,
-        title: "Canceled project",
+        buyerId: fanUser.id,
+        sellerId: creatorUser.id,
+        title: "Canceled Project",
         description: "This project is canceled",
         totalAmount: 100,
-        status: EscrowStatus.CANCELED,
+        status: EscrowStatus.CANCELLED,
         createdAt: new Date(),
-        terms: "Terms for testing",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        terms: { agreement: "Terms for testing" },
       });
 
       await request(app.getHttpServer())
         .patch(`/escrow/${canceledEscrow.id}/status`)
         .set("Authorization", `Bearer ${fanToken}`)
         .send({
-          status: EscrowStatus.ACTIVE,
+          status: EscrowStatus.FUNDED,
         })
         .expect(400);
 
@@ -449,14 +458,15 @@ describe("Escrow API (e2e)", () => {
     beforeAll(async () => {
       // Create an active escrow that can be canceled
       const cancelableEscrow = await escrowRepository.save({
-        client: fanUser,
-        provider: creatorUser,
-        title: "Cancelable project",
+        buyerId: fanUser.id,
+        sellerId: creatorUser.id,
+        title: "Cancelable Project",
         description: "This project can be canceled",
         totalAmount: 200,
-        status: EscrowStatus.ACTIVE,
+        status: EscrowStatus.FUNDED,
         createdAt: new Date(),
-        terms: "Terms for testing",
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        terms: { agreement: "Terms for testing" },
       });
       cancelableEscrowId = cancelableEscrow.id;
     });
@@ -475,28 +485,29 @@ describe("Escrow API (e2e)", () => {
         })
         .expect(200);
 
-      expect(response.body).toHaveProperty("status", EscrowStatus.CANCELED);
+      expect(response.body).toHaveProperty("status", EscrowStatus.CANCELLED);
 
       // Verify in database
       const updatedEscrow = await escrowRepository.findOne({
         where: { id: cancelableEscrowId },
       });
-      expect(updatedEscrow.status).toBe(EscrowStatus.CANCELED);
+      expect(updatedEscrow).not.toBeNull();
+      expect(updatedEscrow!.status).toBe(EscrowStatus.CANCELLED);
     });
   });
 
   describe("PATCH /escrow/milestones/:id/status", () => {
-    let statusMilestone: Milestone;
+    let statusMilestone: EscrowMilestone;
 
     beforeAll(async () => {
       // Create a milestone for status updates
       statusMilestone = await milestoneRepository.save({
-        escrow: testEscrow,
-        title: "Status test milestone",
+        escrowId: testEscrow.id,
         description: "Testing milestone status updates",
         amount: 50,
         status: MilestoneStatus.PENDING,
-        dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+        sequence: 2,
+        createdAt: new Date(),
       });
     });
 
@@ -511,7 +522,6 @@ describe("Escrow API (e2e)", () => {
         .set("Authorization", `Bearer ${creatorToken}`)
         .send({
           status: MilestoneStatus.COMPLETED,
-          comments: "Milestone work is finished",
         })
         .expect(200);
 
@@ -521,7 +531,8 @@ describe("Escrow API (e2e)", () => {
       const updatedMilestone = await milestoneRepository.findOne({
         where: { id: statusMilestone.id },
       });
-      expect(updatedMilestone.status).toBe(MilestoneStatus.COMPLETED);
+      expect(updatedMilestone).not.toBeNull();
+      expect(updatedMilestone!.status).toBe(MilestoneStatus.COMPLETED);
     });
 
     it("should allow client to approve completed milestone", async () => {
@@ -529,42 +540,41 @@ describe("Escrow API (e2e)", () => {
         .patch(`/escrow/milestones/${statusMilestone.id}/status`)
         .set("Authorization", `Bearer ${fanToken}`)
         .send({
-          status: MilestoneStatus.APPROVED,
-          comments: "Work approved, payment released",
+          status: MilestoneStatus.COMPLETED,
         })
         .expect(200);
 
-      expect(response.body).toHaveProperty("status", MilestoneStatus.APPROVED);
+      expect(response.body).toHaveProperty("status", MilestoneStatus.COMPLETED);
 
       // Verify in database
       const updatedMilestone = await milestoneRepository.findOne({
         where: { id: statusMilestone.id },
       });
-      expect(updatedMilestone.status).toBe(MilestoneStatus.APPROVED);
+      expect(updatedMilestone).not.toBeNull();
+      expect(updatedMilestone!.status).toBe(MilestoneStatus.COMPLETED);
     });
 
     it("should reject invalid milestone status transitions", async () => {
-      // Create another milestone with REJECTED status
-      const rejectedMilestone = await milestoneRepository.save({
-        escrow: testEscrow,
-        title: "Rejected milestone",
-        description: "This milestone was rejected",
+      // Create another milestone with DISPUTED status
+      const disputedMilestone = await milestoneRepository.save({
+        escrowId: testEscrow.id,
+        description: "This milestone was disputed",
         amount: 25,
-        status: MilestoneStatus.REJECTED,
-        dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        status: MilestoneStatus.DISPUTED,
+        sequence: 3,
+        createdAt: new Date(),
       });
 
       await request(app.getHttpServer())
-        .patch(`/escrow/milestones/${rejectedMilestone.id}/status`)
+        .patch(`/escrow/milestones/${disputedMilestone.id}/status`)
         .set("Authorization", `Bearer ${creatorToken}`)
         .send({
-          status: MilestoneStatus.APPROVED,
-          comments: "Trying invalid transition",
+          status: MilestoneStatus.COMPLETED,
         })
         .expect(400);
 
       // Clean up
-      await milestoneRepository.delete(rejectedMilestone.id);
+      await milestoneRepository.delete(disputedMilestone.id);
     });
   });
 

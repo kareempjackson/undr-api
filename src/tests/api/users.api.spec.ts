@@ -35,55 +35,54 @@ describe("Users API (e2e)", () => {
     );
     jwtService = moduleFixture.get<JwtService>(JwtService);
 
-    // Create admin user for testing
-    adminUser = await userRepository.save(
-      userRepository.create({
-        email: `admin-${Date.now()}@example.com`,
-        password: await bcrypt.hash("StrongAdminPass123!", 10),
-        name: "Admin User",
-        role: UserRole.ADMIN,
-        status: UserStatus.ACTIVE,
-        emailVerified: true,
-      })
-    );
+    // Create test users
+    // Admin user
+    adminUser = await userRepository.save({
+      email: `admin-${Date.now()}@example.com`,
+      password: await bcrypt.hash("StrongAdminPass123!", 10),
+      name: "Admin User",
+      role: UserRole.ADMIN,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+    });
+
+    // Regular user (fan)
+    regularUser = await userRepository.save({
+      email: `fan-${Date.now()}@example.com`,
+      password: await bcrypt.hash("StrongFanPass123!", 10),
+      name: "Fan User",
+      role: UserRole.FAN,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+    });
+
+    // Creator user
+    creatorUser = await userRepository.save({
+      email: `creator-${Date.now()}@example.com`,
+      password: await bcrypt.hash("StrongCreatorPass123!", 10),
+      name: "Creator User",
+      role: UserRole.CREATOR,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      bio: "Professional content creator",
+    });
+
     testUsers.push(adminUser);
+    testUsers.push(regularUser);
+    testUsers.push(creatorUser);
+
     adminToken = jwtService.sign({
       sub: adminUser.id,
       email: adminUser.email,
       role: adminUser.role,
     });
 
-    // Create regular user
-    regularUser = await userRepository.save(
-      userRepository.create({
-        email: `fan-${Date.now()}@example.com`,
-        password: await bcrypt.hash("StrongUserPass123!", 10),
-        name: "Regular User",
-        role: UserRole.FAN,
-        status: UserStatus.ACTIVE,
-        emailVerified: true,
-      })
-    );
-    testUsers.push(regularUser);
     regularUserToken = jwtService.sign({
       sub: regularUser.id,
       email: regularUser.email,
       role: regularUser.role,
     });
 
-    // Create creator user
-    creatorUser = await userRepository.save(
-      userRepository.create({
-        email: `creator-${Date.now()}@example.com`,
-        password: await bcrypt.hash("StrongCreatorPass123!", 10),
-        name: "Creator User",
-        role: UserRole.CREATOR,
-        status: UserStatus.ACTIVE,
-        emailVerified: true,
-        bio: "Professional content creator",
-      })
-    );
-    testUsers.push(creatorUser);
     creatorUserToken = jwtService.sign({
       sub: creatorUser.id,
       email: creatorUser.email,
@@ -196,8 +195,9 @@ describe("Users API (e2e)", () => {
       const updatedUser = await userRepository.findOne({
         where: { id: regularUser.id },
       });
-      expect(updatedUser.name).toBe(updatedName);
-      expect(updatedUser.bio).toBe(updatedBio);
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser!.name).toBe(updatedName);
+      expect(updatedUser!.bio).toBe(updatedBio);
     });
 
     it("should prevent users from updating other users' profiles", async () => {
@@ -241,7 +241,8 @@ describe("Users API (e2e)", () => {
       const unchangedUser = await userRepository.findOne({
         where: { id: regularUser.id },
       });
-      expect(unchangedUser.role).toBe(UserRole.FAN);
+      expect(unchangedUser).not.toBeNull();
+      expect(unchangedUser!.role).toBe(UserRole.FAN);
     });
   });
 
@@ -309,7 +310,8 @@ describe("Users API (e2e)", () => {
       const updatedUser = await userRepository.findOne({
         where: { id: regularUser.id },
       });
-      expect(updatedUser.status).toBe(UserStatus.SUSPENDED);
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser!.status).toBe(UserStatus.SUSPENDED);
     });
 
     it("should deny status update to non-admin users", async () => {
@@ -339,7 +341,8 @@ describe("Users API (e2e)", () => {
       const updatedUser = await userRepository.findOne({
         where: { id: regularUser.id },
       });
-      expect(updatedUser.role).toBe(UserRole.CREATOR);
+      expect(updatedUser).not.toBeNull();
+      expect(updatedUser!.role).toBe(UserRole.CREATOR);
 
       // Update our reference
       regularUser.role = UserRole.CREATOR;

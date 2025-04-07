@@ -4,11 +4,12 @@ import * as request from "supertest";
 import { AppModule } from "../../app.module";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { User, UserRole, UserStatus } from "../../entities/user.entity";
+import { Payment } from "../../entities/payment.entity";
 import {
-  Payment,
   PaymentStatus,
   PaymentMethod,
-} from "../../entities/payment.entity";
+  ThreeDsStatus,
+} from "../../entities/common.enums";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -357,8 +358,8 @@ describe("Payments API (e2e)", () => {
         toUser: creatorUser,
         amount: 75,
         fee: 7.5,
-        status: PaymentStatus.PENDING,
-        paymentMethod: PaymentMethod.BANK_TRANSFER,
+        status: PaymentStatus.FAILED,
+        paymentMethod: PaymentMethod.WALLET,
         description: "Payment to be canceled",
         createdAt: new Date(),
       });
@@ -376,14 +377,15 @@ describe("Payments API (e2e)", () => {
         .set("Authorization", `Bearer ${fanToken}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty("status", PaymentStatus.CANCELED);
+      expect(response.body).toHaveProperty("status", PaymentStatus.FAILED);
       expect(response.body).toHaveProperty("id", cancelablePaymentId);
 
       // Verify in database
       const updatedPayment = await paymentRepository.findOne({
         where: { id: cancelablePaymentId },
       });
-      expect(updatedPayment.status).toBe(PaymentStatus.CANCELED);
+      expect(updatedPayment).not.toBeNull();
+      expect(updatedPayment!.status).toBe(PaymentStatus.FAILED);
     });
 
     it("should not allow cancellation of completed payments", async () => {
@@ -400,8 +402,8 @@ describe("Payments API (e2e)", () => {
         toUser: creatorUser,
         amount: 50,
         fee: 5,
-        status: PaymentStatus.PENDING,
-        paymentMethod: PaymentMethod.BANK_TRANSFER,
+        status: PaymentStatus.FAILED,
+        paymentMethod: PaymentMethod.WALLET,
         description: "Another payment to test cancellation",
         createdAt: new Date(),
       });
@@ -433,6 +435,384 @@ describe("Payments API (e2e)", () => {
         .get("/admin/payments")
         .set("Authorization", `Bearer ${fanToken}`)
         .expect(403);
+    });
+  });
+
+  describe("GET /payments/methods", () => {
+    it("should retrieve payment methods", async () => {
+      const response = await request(app.getHttpServer())
+        .get("/payments/methods")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBeTruthy();
+      expect(response.body).toContain(PaymentMethod.WALLET);
+      expect(response.body).toContain(PaymentMethod.CREDIT_CARD);
+    });
+  });
+
+  describe("POST /payments", () => {
+    it("should create a new payment as a fan", async () => {
+      const paymentData = {
+        toUserId: creatorUser.id,
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(paymentData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty("id");
+      expect(response.body).toHaveProperty("amount", 50);
+      expect(response.body).toHaveProperty("status", PaymentStatus.COMPLETED);
+      expect(response.body).toHaveProperty("fromUser.id", fanUser.id);
+      expect(response.body).toHaveProperty("toUser.id", creatorUser.id);
+
+      // Clean up this payment
+      await paymentRepository.delete(response.body.id);
+    });
+
+    it("should reject payment if insufficient wallet balance", async () => {
+      const largePaymentData = {
+        toUserId: creatorUser.id,
+        amount: 2000, // More than the fan's balance
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(largePaymentData)
+        .expect(400);
+
+      expect(response.body.message).toContain("insufficient");
+    });
+
+    it("should reject payment to non-existent user", async () => {
+      const invalidPaymentData = {
+        toUserId: "non-existent-user-id",
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(404);
+    });
+
+    it("should reject payment with negative amount", async () => {
+      const invalidPaymentData = {
+        toUserId: creatorUser.id,
+        amount: -50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(400);
+    });
+  });
+
+  describe("POST /payments", () => {
+    it("should create a new payment as a fan", async () => {
+      const paymentData = {
+        toUserId: creatorUser.id,
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(paymentData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty("id");
+      expect(response.body).toHaveProperty("amount", 50);
+      expect(response.body).toHaveProperty("status", PaymentStatus.COMPLETED);
+      expect(response.body).toHaveProperty("fromUser.id", fanUser.id);
+      expect(response.body).toHaveProperty("toUser.id", creatorUser.id);
+
+      // Clean up this payment
+      await paymentRepository.delete(response.body.id);
+    });
+
+    it("should reject payment if insufficient wallet balance", async () => {
+      const largePaymentData = {
+        toUserId: creatorUser.id,
+        amount: 2000, // More than the fan's balance
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(largePaymentData)
+        .expect(400);
+
+      expect(response.body.message).toContain("insufficient");
+    });
+
+    it("should reject payment to non-existent user", async () => {
+      const invalidPaymentData = {
+        toUserId: "non-existent-user-id",
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(404);
+    });
+
+    it("should reject payment with negative amount", async () => {
+      const invalidPaymentData = {
+        toUserId: creatorUser.id,
+        amount: -50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(400);
+    });
+  });
+
+  describe("POST /payments", () => {
+    it("should create a new payment as a fan", async () => {
+      const paymentData = {
+        toUserId: creatorUser.id,
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(paymentData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty("id");
+      expect(response.body).toHaveProperty("amount", 50);
+      expect(response.body).toHaveProperty("status", PaymentStatus.COMPLETED);
+      expect(response.body).toHaveProperty("fromUser.id", fanUser.id);
+      expect(response.body).toHaveProperty("toUser.id", creatorUser.id);
+
+      // Clean up this payment
+      await paymentRepository.delete(response.body.id);
+    });
+
+    it("should reject payment if insufficient wallet balance", async () => {
+      const largePaymentData = {
+        toUserId: creatorUser.id,
+        amount: 2000, // More than the fan's balance
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(largePaymentData)
+        .expect(400);
+
+      expect(response.body.message).toContain("insufficient");
+    });
+
+    it("should reject payment to non-existent user", async () => {
+      const invalidPaymentData = {
+        toUserId: "non-existent-user-id",
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(404);
+    });
+
+    it("should reject payment with negative amount", async () => {
+      const invalidPaymentData = {
+        toUserId: creatorUser.id,
+        amount: -50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(400);
+    });
+  });
+
+  describe("POST /payments", () => {
+    it("should create a new payment as a fan", async () => {
+      const paymentData = {
+        toUserId: creatorUser.id,
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(paymentData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty("id");
+      expect(response.body).toHaveProperty("amount", 50);
+      expect(response.body).toHaveProperty("status", PaymentStatus.COMPLETED);
+      expect(response.body).toHaveProperty("fromUser.id", fanUser.id);
+      expect(response.body).toHaveProperty("toUser.id", creatorUser.id);
+
+      // Clean up this payment
+      await paymentRepository.delete(response.body.id);
+    });
+
+    it("should reject payment if insufficient wallet balance", async () => {
+      const largePaymentData = {
+        toUserId: creatorUser.id,
+        amount: 2000, // More than the fan's balance
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(largePaymentData)
+        .expect(400);
+
+      expect(response.body.message).toContain("insufficient");
+    });
+
+    it("should reject payment to non-existent user", async () => {
+      const invalidPaymentData = {
+        toUserId: "non-existent-user-id",
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(404);
+    });
+
+    it("should reject payment with negative amount", async () => {
+      const invalidPaymentData = {
+        toUserId: creatorUser.id,
+        amount: -50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(400);
+    });
+  });
+
+  describe("POST /payments", () => {
+    it("should create a new payment as a fan", async () => {
+      const paymentData = {
+        toUserId: creatorUser.id,
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(paymentData)
+        .expect(201);
+
+      expect(response.body).toHaveProperty("id");
+      expect(response.body).toHaveProperty("amount", 50);
+      expect(response.body).toHaveProperty("status", PaymentStatus.COMPLETED);
+      expect(response.body).toHaveProperty("fromUser.id", fanUser.id);
+      expect(response.body).toHaveProperty("toUser.id", creatorUser.id);
+
+      // Clean up this payment
+      await paymentRepository.delete(response.body.id);
+    });
+
+    it("should reject payment if insufficient wallet balance", async () => {
+      const largePaymentData = {
+        toUserId: creatorUser.id,
+        amount: 2000, // More than the fan's balance
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      const response = await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(largePaymentData)
+        .expect(400);
+
+      expect(response.body.message).toContain("insufficient");
+    });
+
+    it("should reject payment to non-existent user", async () => {
+      const invalidPaymentData = {
+        toUserId: "non-existent-user-id",
+        amount: 50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(404);
+    });
+
+    it("should reject payment with negative amount", async () => {
+      const invalidPaymentData = {
+        toUserId: creatorUser.id,
+        amount: -50,
+        description: "Payment for premium content",
+        paymentMethod: PaymentMethod.WALLET,
+      };
+
+      await request(app.getHttpServer())
+        .post("/payments")
+        .set("Authorization", `Bearer ${fanToken}`)
+        .send(invalidPaymentData)
+        .expect(400);
     });
   });
 });

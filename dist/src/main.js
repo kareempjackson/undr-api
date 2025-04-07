@@ -9,17 +9,17 @@ const encrypted_column_factory_1 = require("./modules/common/transformers/encryp
 const encryption_service_1 = require("./modules/security/encryption.service");
 const platform_socket_io_1 = require("@nestjs/platform-socket.io");
 const dotenv = require("dotenv");
+const data_source_1 = require("./data-source");
 dotenv.config();
 async function bootstrap() {
     try {
         if (process.env.NODE_ENV === "production" && process.env.DATABASE_URL) {
-            const AppDataSource = require("./data-source").AppDataSource;
             try {
                 console.log("Attempting to run migrations...");
-                await AppDataSource.initialize();
-                await AppDataSource.runMigrations();
+                await data_source_1.AppDataSource.initialize();
+                await data_source_1.AppDataSource.runMigrations();
                 console.log("Migrations completed successfully");
-                await AppDataSource.destroy();
+                await data_source_1.AppDataSource.destroy();
             }
             catch (error) {
                 console.error("Error running migrations:", error);

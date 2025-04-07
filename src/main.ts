@@ -7,6 +7,7 @@ import { setEncryptionService } from "./modules/common/transformers/encrypted-co
 import { EncryptionService } from "./modules/security/encryption.service";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import * as dotenv from "dotenv";
+import { AppDataSource } from "./data-source";
 
 // Load environment variables
 dotenv.config();
@@ -17,8 +18,8 @@ async function bootstrap() {
     if (process.env.NODE_ENV === "production" && process.env.DATABASE_URL) {
       try {
         console.log("Attempting to run migrations...");
-        // Important: Directly reference the compiled JS files in dist directory
-        const { AppDataSource } = require("../dist/data-source.js");
+
+        // Use the imported AppDataSource directly in production
         await AppDataSource.initialize();
         await AppDataSource.runMigrations();
         console.log("Migrations completed successfully");
