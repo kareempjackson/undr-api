@@ -117,20 +117,54 @@ async function bootstrap() {
     const frontendAltDevUrl = "http://127.0.0.1:3001"; // Sometimes used by browsers
     const adminUrl = process.env.ADMIN_URL || "http://localhost:3005";
 
+    // Add Vercel domains for the frontend
+    const vercelFrontendUrl = "https://undr-frontend.vercel.app";
+    const vercelDevFrontendUrl = "https://undr-frontend-dev.vercel.app";
+
+    // Railway production URL
+    const railwayUrl = "https://undr-api-production.up.railway.app";
+
     // For Railway deployment - add production URLs to CORS whitelist
     const productionUrls = process.env.PRODUCTION_URLS
       ? process.env.PRODUCTION_URLS.split(",")
       : [];
 
+    // Log CORS origins for debugging
+    console.log("Setting up CORS with the following origins:");
+    [
+      frontendUrl,
+      frontendDevUrl,
+      frontendAltUrl,
+      frontendAltDevUrl,
+      adminUrl,
+      vercelFrontendUrl,
+      vercelDevFrontendUrl,
+      railwayUrl,
+      ...productionUrls,
+    ].forEach((url) => console.log(`- ${url}`));
+
     app.enableCors({
-      origin: [
-        frontendUrl,
-        frontendDevUrl,
-        frontendAltUrl,
-        frontendAltDevUrl,
-        adminUrl,
-        ...productionUrls,
-      ],
+      origin: (origin, callback) => {
+        const allowedOrigins = [
+          frontendUrl,
+          frontendDevUrl,
+          frontendAltUrl,
+          frontendAltDevUrl,
+          adminUrl,
+          vercelFrontendUrl,
+          vercelDevFrontendUrl,
+          railwayUrl,
+          ...productionUrls,
+        ];
+
+        // Allow requests with no origin (like mobile apps, curl requests)
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          console.warn(`CORS blocked request from origin: ${origin}`);
+          callback(null, false);
+        }
+      },
       methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization", "stripe-signature"],
@@ -139,11 +173,7 @@ async function bootstrap() {
       optionsSuccessStatus: 204,
     });
 
-    console.log(
-      `CORS enabled for origins: ${frontendUrl}, ${frontendDevUrl}, ${frontendAltUrl}, ${frontendAltDevUrl}, ${adminUrl}, ${productionUrls.join(
-        ", "
-      )}`
-    );
+    console.log("CORS configuration complete");
 
     // Set security headers for all responses
     app.use((req, res, next) => {
