@@ -3,15 +3,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppDataSource = void 0;
 const typeorm_1 = require("typeorm");
 const dotenv = require("dotenv");
+const path = require("path");
 dotenv.config();
 let dataSourceOptions;
 const isProduction = process.env.NODE_ENV === "production";
 const entitiesPath = isProduction
-    ? ["dist/**/*.entity.js"]
-    : ["dist/**/*.entity.js", "src/**/*.entity.ts"];
+    ? [path.join(process.cwd(), "dist", "src", "**", "*.entity.js")]
+    : [
+        path.join(process.cwd(), "dist", "src", "**", "*.entity.js"),
+        path.join(process.cwd(), "src", "**", "*.entity.ts"),
+    ];
 const migrationsPath = isProduction
-    ? ["dist/migrations/*.js"]
-    : ["dist/migrations/*.js", "src/migrations/*.ts"];
+    ? [path.join(process.cwd(), "dist", "src", "migrations", "*.js")]
+    : [
+        path.join(process.cwd(), "dist", "src", "migrations", "*.js"),
+        path.join(process.cwd(), "src", "migrations", "*.ts"),
+    ];
+console.log(`Entities paths: ${entitiesPath.join(", ")}`);
+console.log(`Migrations paths: ${migrationsPath.join(", ")}`);
 if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for database connection");
     console.log(`DATABASE_URL: ${process.env.DATABASE_URL.replace(/:[^:@]*@/, ":****@")}`);

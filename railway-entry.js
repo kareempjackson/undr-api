@@ -23,6 +23,7 @@ console.log(`DATABASE_URL configured: ${!!process.env.DATABASE_URL}`);
 const { spawn } = require("child_process");
 const path = require("path");
 const { execSync } = require("child_process");
+const fs = require("fs");
 
 // Run the database check script first
 console.log("\n=== Running Database Connection Check ===");
@@ -33,16 +34,27 @@ try {
   console.error("Database check failed, but continuing:", error.message);
 }
 
-// Run migrations
+// Try running migrations
 console.log("\n=== Running Database Migrations ===");
+let migrationsSuccessful = false;
 try {
   execSync("node scripts/run-migrations.js", { stdio: "inherit" });
   console.log("Migrations completed successfully");
+  migrationsSuccessful = true;
 } catch (error) {
-  console.error(
-    "Migration process encountered an error, but continuing:",
-    error.message
-  );
+  console.error("Migration process encountered an error:", error.message);
+}
+
+// If migrations failed, try manual schema creation as a fallback
+if (!migrationsSuccessful) {
+  console.log("\n=== Attempting Manual Schema Creation ===");
+  try {
+    execSync("node scripts/manual-schema-creation.js", { stdio: "inherit" });
+    console.log("Manual schema creation completed");
+  } catch (error) {
+    console.error("Manual schema creation failed:", error.message);
+    console.log("Continuing startup regardless of database status...");
+  }
 }
 
 console.log("\n=== Starting Application ===");

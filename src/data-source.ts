@@ -1,19 +1,30 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import * as dotenv from "dotenv";
+import * as path from "path";
 
 dotenv.config();
 
 let dataSourceOptions: DataSourceOptions;
 const isProduction = process.env.NODE_ENV === "production";
 
-// In production, only use compiled JS files
+// In production, only use compiled JS files - using absolute paths to avoid confusion
 const entitiesPath = isProduction
-  ? ["dist/**/*.entity.js"]
-  : ["dist/**/*.entity.js", "src/**/*.entity.ts"];
+  ? [path.join(process.cwd(), "dist", "src", "**", "*.entity.js")]
+  : [
+      path.join(process.cwd(), "dist", "src", "**", "*.entity.js"),
+      path.join(process.cwd(), "src", "**", "*.entity.ts"),
+    ];
 
 const migrationsPath = isProduction
-  ? ["dist/migrations/*.js"]
-  : ["dist/migrations/*.js", "src/migrations/*.ts"];
+  ? [path.join(process.cwd(), "dist", "src", "migrations", "*.js")]
+  : [
+      path.join(process.cwd(), "dist", "src", "migrations", "*.js"),
+      path.join(process.cwd(), "src", "migrations", "*.ts"),
+    ];
+
+// Log the paths for debugging
+console.log(`Entities paths: ${entitiesPath.join(", ")}`);
+console.log(`Migrations paths: ${migrationsPath.join(", ")}`);
 
 // Check if DATABASE_URL is provided (Railway or other PaaS)
 if (process.env.DATABASE_URL) {

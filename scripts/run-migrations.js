@@ -19,6 +19,44 @@ if (!useSSL) {
   process.env.USE_SSL = "false";
 }
 
+// Print current directory and paths to help with debugging
+console.log(`Current working directory: ${process.cwd()}`);
+const fs = require("fs");
+const path = require("path");
+
+// Check if dist/src/migrations exists
+const migrationsPath = path.join(process.cwd(), "dist", "src", "migrations");
+if (fs.existsSync(migrationsPath)) {
+  console.log(`Found migrations directory at: ${migrationsPath}`);
+  console.log("Migration files available:");
+  fs.readdirSync(migrationsPath).forEach((file) => {
+    console.log(`- ${file}`);
+  });
+} else {
+  console.log(`No migrations directory found at: ${migrationsPath}`);
+}
+
+// Check if data-source.js exists
+const dataSourcePaths = [
+  path.join(process.cwd(), "dist", "src", "data-source.js"),
+  path.join(process.cwd(), "dist", "data-source.js"),
+];
+
+let dataSourcePath;
+for (const p of dataSourcePaths) {
+  if (fs.existsSync(p)) {
+    dataSourcePath = p;
+    console.log(`Found data-source.js at: ${p}`);
+    break;
+  }
+}
+
+if (!dataSourcePath) {
+  console.error("Could not find data-source.js in any expected location");
+  console.log("Skipping migrations. The application will continue to start.");
+  return;
+}
+
 async function runMigrations() {
   try {
     // Validate DATABASE_URL is set
@@ -41,7 +79,7 @@ async function runMigrations() {
     console.log("Loading AppDataSource from compiled JavaScript...");
     let AppDataSource;
     try {
-      const dataSourceModule = require("../dist/src/data-source.js");
+      const dataSourceModule = require(dataSourcePath);
       AppDataSource = dataSourceModule.AppDataSource;
       if (!AppDataSource) {
         console.error("AppDataSource not found in data-source.js");
@@ -56,6 +94,16 @@ async function runMigrations() {
         "Skipping migrations. The application will continue to start."
       );
       return;
+    }
+
+    // Log the database options for debugging
+    console.log("DataSource configuration:");
+    try {
+      const options = { ...AppDataSource.options };
+      if (options.password) options.password = "****"; // Mask password
+      console.log(JSON.stringify(options, null, 2));
+    } catch (e) {
+      console.log("Could not stringify database options:", e.message);
     }
 
     // Attempt database connection with retries
@@ -95,6 +143,74 @@ async function runMigrations() {
       console.log("Running migrations...");
       const migrations = await AppDataSource.runMigrations();
       console.log(`Successfully ran ${migrations.length} migrations`);
+
+      if (migrations.length === 0) {
+        console.log(
+          "No migrations to run - checking if database schema exists..."
+        );
+
+        // Try a simple query to check if the tables exist
+        try {
+          const queryRunner = AppDataSource.createQueryRunner();
+          await queryRunner.connect();
+
+          // Check if users table exists
+          const result = await queryRunner.query(`
+            SELECT EXISTS (
+              SELECT FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+              AND table_name = 'users'
+            );
+          `);
+
+          const usersTableExists = result[0].exists;
+          console.log(`Users table exists: ${usersTableExists}`);
+
+          if (!usersTableExists) {
+            console.log(
+              "Users table doesn't exist, forcing initial migration..."
+            );
+
+            // Tables don't exist, force run the initial migration
+            console.log("Attempting to run initial migration manually...");
+            // Get list of migrations and run them in order
+            const migrationFiles = fs
+              .readdirSync(migrationsPath)
+              .filter(
+                (file) =>
+                  file.endsWith(".js") &&
+                  !file.endsWith(".d.ts") &&
+                  !file.endsWith(".map")
+              );
+
+            console.log(`Found migration files: ${migrationFiles.join(", ")}`);
+
+            for (const migration of migrationFiles) {
+              try {
+                const migrationPath = path.join(migrationsPath, migration);
+                console.log(`Running migration: ${migration}`);
+                // Load the migration
+                const migrationModule = require(migrationPath);
+                const migrationInstance = new migrationModule[
+                  Object.keys(migrationModule)[0]
+                ]();
+
+                console.log("Executing up() method of migration");
+                await migrationInstance.up(queryRunner);
+                console.log(`Migration ${migration} completed successfully`);
+              } catch (error) {
+                console.error(
+                  `Error running migration ${migration}: ${error.message}`
+                );
+              }
+            }
+          }
+
+          await queryRunner.release();
+        } catch (error) {
+          console.error("Error checking database schema:", error.message);
+        }
+      }
     } catch (migrationError) {
       console.error("Error running migrations:", migrationError.message);
       console.log(
