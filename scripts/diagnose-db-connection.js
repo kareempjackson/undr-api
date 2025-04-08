@@ -240,6 +240,23 @@ async function testDatabaseConnection() {
 
   if (!hasConflictingVars) {
     console.log("No conflicting TypeORM environment variables found.");
+  } else {
+    console.log(
+      "\nIMPORTANT: Railway provides a DATABASE_URL environment variable that includes all database connection information."
+    );
+    console.log(
+      "When DATABASE_URL is present, individual connection parameters like POSTGRES_USER, POSTGRES_PASSWORD, etc."
+    );
+    console.log("are ignored by your application, but may cause confusion.");
+
+    console.log(
+      "\nRECOMMENDATION: Since you're using DATABASE_URL, you should remove these variables in Railway:"
+    );
+    typeormVars.forEach((varName) => {
+      if (process.env[varName]) {
+        console.log(`- ${varName}`);
+      }
+    });
   }
 
   console.log("\n=== DIAGNOSTIC COMPLETE ===");

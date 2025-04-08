@@ -24,6 +24,19 @@ console.log(`Migrations paths: ${migrationsPath.join(", ")}`);
 if (process.env.DATABASE_URL) {
     console.log("Using DATABASE_URL for database connection");
     console.log(`DATABASE_URL: ${process.env.DATABASE_URL.replace(/:[^:@]*@/, ":****@")}`);
+    const conflictingVars = [
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_DB",
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+    ];
+    const foundConflicts = conflictingVars.filter((name) => !!process.env[name]);
+    if (foundConflicts.length > 0) {
+        console.log("\nWARNING: Found individual database credentials that will be ignored:");
+        foundConflicts.forEach((name) => console.log(`- ${name}=${process.env[name]}`));
+        console.log("When DATABASE_URL is present, it takes precedence over individual credentials.");
+    }
     const useSSL = process.env.USE_SSL === "true" || isProduction;
     console.log(`SSL connections: ${useSSL ? "enabled" : "disabled"}`);
     dataSourceOptions = {

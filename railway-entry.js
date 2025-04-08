@@ -57,6 +57,31 @@ if (!migrationsSuccessful) {
   }
 }
 
+// Validate the database configuration
+console.log("\n=== Validating Database Configuration ===");
+try {
+  execSync("node scripts/validate-database-config.js", { stdio: "inherit" });
+  console.log("Database validation completed");
+} catch (error) {
+  console.error("Database validation failed:", error.message);
+  console.log(
+    "The application may not function correctly without a properly configured database."
+  );
+  console.log(
+    "RECOMMENDATION: Check your Railway environment variables and remove duplicate database credentials."
+  );
+}
+
+// Run the wallet schema fix script
+console.log("\n=== Fixing Wallet Schema ===");
+try {
+  execSync("node scripts/fix-wallet-schema.js", { stdio: "inherit" });
+  console.log("Wallet schema fix completed successfully");
+} catch (error) {
+  console.error("Wallet schema fix failed:", error.message);
+  console.log("Attempting to start the application anyway...");
+}
+
 console.log("\n=== Starting Application ===");
 // Start the main application
 const app = spawn("node", ["dist/src/main"], {
