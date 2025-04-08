@@ -3,8 +3,8 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "NODE_ENV=production node scripts/diagnose-db-connection.js && NODE_ENV=production npm run migration:prod && NODE_ENV=production node dist/src/main"
-healthcheckPath = "/"
+startCommand = "NODE_ENV=production echo 'Starting app in production mode' && node scripts/diagnose-db-connection.js && NODE_ENV=production npm run migration:prod && NODE_ENV=production node dist/src/main || (echo 'Failed to start application, checking for errors:' && cat logs/error.log || echo 'No error logs found')"
+healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5
