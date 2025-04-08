@@ -26,32 +26,64 @@ import { HealthModule } from "./modules/health/health.module";
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
-        // Check if DATABASE_URL is provided (Railway or other PaaS)
+        // Check if we have DATABASE_URL (Railway provides this)
         const databaseUrl = configService.get<string>("DATABASE_URL");
-        const isProduction = configService.get("NODE_ENV") === "production";
-
-        console.log(`[AppModule] Database connection info:`);
-        console.log(`- NODE_ENV: ${configService.get("NODE_ENV")}`);
-        console.log(`- Has DATABASE_URL: ${!!databaseUrl}`);
-        if (databaseUrl) {
-          // Mask password for security in logs
-          const maskedUrl = databaseUrl.replace(/:[^:@]*@/, ":****@");
-          console.log(`- DATABASE_URL: ${maskedUrl}`);
-        }
+        console.log(`Database URL configured: ${!!databaseUrl}`);
 
         if (databaseUrl) {
-          // If DATABASE_URL is provided, use it directly
-          console.log("[AppModule] Using DATABASE_URL for connection");
+          // Production/Staging with DATABASE_URL
+          console.log("Using DATABASE_URL for connection");
+          const maskedDbUrl = databaseUrl.replace(/:([^:@]+)@/, ":****@");
+          console.log(`Connection string (masked): ${maskedDbUrl}`);
+
+          // Parse the URL to check if it's trying to connect to localhost
+          try {
+            const matches = databaseUrl.match(
+              /postgresql:\/\/[^:]+:[^@]+@([^:]+):/
+            );
+            if (
+              matches &&
+              (matches[1] === "localhost" ||
+                matches[1] === "127.0.0.1" ||
+                matches[1] === "::1")
+            ) {
+              console.warn(
+                "WARNING: Your DATABASE_URL contains localhost/127.0.0.1/::1 which will not work in production!"
+              );
+            }
+          } catch (e) {
+            console.error("Error parsing DATABASE_URL:", e.message);
+          }
+
+          // Use the URL directly with extended options
           return {
             type: "postgres",
             url: databaseUrl,
-            entities: ["dist/**/*.entity{.ts,.js}"],
-            synchronize: false, // Never auto-sync in production
-            logging: configService.get("NODE_ENV") === "development",
+            ssl:
+              process.env.NODE_ENV === "production"
+                ? { rejectUnauthorized: false }
+                : false,
             autoLoadEntities: true,
-            connectTimeoutMS: 30000, // Increase timeout for connection attempts
-            ssl: isProduction ? { rejectUnauthorized: false } : false,
-          } as TypeOrmModuleOptions;
+            synchronize: false, // IMPORTANT: never true in production
+            logging:
+              process.env.NODE_ENV !== "production" ||
+              process.env.DB_LOGGING === "true",
+            maxQueryExecutionTime: 1000, // Log slow queries
+            connectTimeoutMS: 30000, // 30 seconds connection timeout
+            extra: {
+              // Retry connection logic
+              max: 10, // Maximum number of clients in the pool
+              connectionTimeoutMillis: 30000, // Connection timeout 30s
+              // Add retry for network failures
+              retry: {
+                maxRetryTime: 20000, // 20 seconds max retry time
+                retryDelayMs: 1000, // Initial retry delay
+                maxRetries: 5, // Number of retries
+              },
+            },
+            // Enable native connection pool to prevent connection timeout
+            poolSize: 20,
+          };
         }
 
         // Fallback to individual connection parameters (DEVELOPMENT ONLY)

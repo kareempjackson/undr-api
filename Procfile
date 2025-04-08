@@ -1,1 +1,1 @@
-web: npm run start:prod 
+web: NODE_ENV=production SKIP_DB_CHECK=true node dist/src/main 

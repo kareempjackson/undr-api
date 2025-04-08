@@ -37,25 +37,45 @@ AppModule = __decorate([
                 inject: [config_1.ConfigService],
                 useFactory: (configService) => {
                     const databaseUrl = configService.get("DATABASE_URL");
-                    const isProduction = configService.get("NODE_ENV") === "production";
-                    console.log(`[AppModule] Database connection info:`);
-                    console.log(`- NODE_ENV: ${configService.get("NODE_ENV")}`);
-                    console.log(`- Has DATABASE_URL: ${!!databaseUrl}`);
+                    console.log(`Database URL configured: ${!!databaseUrl}`);
                     if (databaseUrl) {
-                        const maskedUrl = databaseUrl.replace(/:[^:@]*@/, ":****@");
-                        console.log(`- DATABASE_URL: ${maskedUrl}`);
-                    }
-                    if (databaseUrl) {
-                        console.log("[AppModule] Using DATABASE_URL for connection");
+                        console.log("Using DATABASE_URL for connection");
+                        const maskedDbUrl = databaseUrl.replace(/:([^:@]+)@/, ":****@");
+                        console.log(`Connection string (masked): ${maskedDbUrl}`);
+                        try {
+                            const matches = databaseUrl.match(/postgresql:\/\/[^:]+:[^@]+@([^:]+):/);
+                            if (matches &&
+                                (matches[1] === "localhost" ||
+                                    matches[1] === "127.0.0.1" ||
+                                    matches[1] === "::1")) {
+                                console.warn("WARNING: Your DATABASE_URL contains localhost/127.0.0.1/::1 which will not work in production!");
+                            }
+                        }
+                        catch (e) {
+                            console.error("Error parsing DATABASE_URL:", e.message);
+                        }
                         return {
                             type: "postgres",
                             url: databaseUrl,
-                            entities: ["dist/**/*.entity{.ts,.js}"],
-                            synchronize: false,
-                            logging: configService.get("NODE_ENV") === "development",
+                            ssl: process.env.NODE_ENV === "production"
+                                ? { rejectUnauthorized: false }
+                                : false,
                             autoLoadEntities: true,
+                            synchronize: false,
+                            logging: process.env.NODE_ENV !== "production" ||
+                                process.env.DB_LOGGING === "true",
+                            maxQueryExecutionTime: 1000,
                             connectTimeoutMS: 30000,
-                            ssl: isProduction ? { rejectUnauthorized: false } : false,
+                            extra: {
+                                max: 10,
+                                connectionTimeoutMillis: 30000,
+                                retry: {
+                                    maxRetryTime: 20000,
+                                    retryDelayMs: 1000,
+                                    maxRetries: 5,
+                                },
+                            },
+                            poolSize: 20,
                         };
                     }
                     console.log("[AppModule] Using individual parameters for database connection");

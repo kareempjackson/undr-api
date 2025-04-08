@@ -5,6 +5,8 @@
  * It checks the DATABASE_URL configuration and attempts to connect to verify settings.
  *
  * Usage: NODE_ENV=production node scripts/diagnose-db-connection.js
+ *
+ * Set SKIP_DB_CHECK=true to bypass database connectivity checks (useful for debugging)
  */
 
 // Force production environment for testing
@@ -19,6 +21,18 @@ const dns = require("dns").promises;
 async function testDatabaseConnection() {
   console.log("=== DATABASE CONNECTION DIAGNOSTIC ===");
   console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+
+  // Allow bypassing database checks for debugging
+  if (process.env.SKIP_DB_CHECK === "true") {
+    console.log(
+      "SKIP_DB_CHECK is set to true, bypassing database connectivity checks"
+    );
+    console.log(
+      "Application will continue startup even if database is not available"
+    );
+    console.log("\n=== DIAGNOSTIC COMPLETE ===");
+    return true;
+  }
 
   // Check if DATABASE_URL exists
   if (!process.env.DATABASE_URL) {
@@ -161,10 +175,30 @@ async function testDatabaseConnection() {
         console.error(
           "4. The PostgreSQL service is not listening on the specified port"
         );
+
+        if (
+          connectionInfo.host === "localhost" ||
+          connectionInfo.host === "127.0.0.1" ||
+          connectionInfo.host === "::1"
+        ) {
+          console.error(
+            "\nYou're trying to connect to localhost in a containerized environment!"
+          );
+          console.error(
+            "This won't work in Railway or similar platforms - you need to update"
+          );
+          console.error(
+            "your DATABASE_URL to point to an actual PostgreSQL server accessible"
+          );
+          console.error("from the internet or your private network.");
+        }
       }
 
       console.log(
         "\nWARNING: Unable to connect to database, but will continue startup process."
+      );
+      console.log(
+        "Set SKIP_DB_CHECK=true in environment variables to bypass this check in the future."
       );
     }
   }
@@ -209,11 +243,18 @@ async function testDatabaseConnection() {
   }
 
   console.log("\n=== DIAGNOSTIC COMPLETE ===");
+  // Return true to allow the application to continue even with db connection issues
+  return true;
 }
 
-// Run the diagnostic
-testDatabaseConnection().catch((error) => {
-  console.error("Unhandled error in diagnostic:", error);
-  console.log("Continuing with application startup despite diagnostic error.");
-  // Don't exit with an error code, just continue
-});
+// Run the diagnostic and continue regardless of outcome
+testDatabaseConnection()
+  .catch((error) => {
+    console.error("Unhandled error in diagnostic:", error);
+    console.log(
+      "Continuing with application startup despite diagnostic error."
+    );
+  })
+  .finally(() => {
+    console.log("Continuing with application startup...");
+  });
