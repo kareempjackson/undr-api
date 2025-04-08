@@ -11,7 +11,3 @@ restartPolicyMaxRetries = 10
 
 [nixpacks]
 nodejs_version = "20"
-
-# Environment variables
-[variables]
-SKIP_DB_CHECK = "true"
