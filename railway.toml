@@ -3,17 +3,11 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "NODE_ENV=production PORT=3000 node scripts/diagnose-db-connection.js && NODE_ENV=production PORT=3000 npm run migration:prod && NODE_ENV=production PORT=3000 node dist/src/main"
+startCommand = "NODE_ENV=production node scripts/diagnose-db-connection.js && NODE_ENV=production npm run migration:prod && NODE_ENV=production node dist/src/main"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 5
-numReplicas = 1
 
 [nixpacks]
 nodejs_version = "20"
-
-# Force the app to bind to 0.0.0.0 to be accessible from outside
-[service]
-internal_port = 3000
-protocol = "http"

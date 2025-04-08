@@ -28,12 +28,10 @@ ENCRYPTION_KEY=[secure-random-string]
 ### Frontend URLs
 
 ```
-FRONTEND_URL=https://undr-frontend.vercel.app
+FRONTEND_URL=https://your-production-frontend-url.com
 ADMIN_URL=https://your-production-admin-url.com
-PRODUCTION_URLS=https://undr-frontend.vercel.app,https://undr-frontend-dev.vercel.app,https://undr-api-production.up.railway.app
+PRODUCTION_URLS=https://your-production-frontend-url.com,https://www.your-production-frontend-url.com
 ```
-
-**Note:** Ensure that both your Vercel frontend URL and Railway API URL are included in the `PRODUCTION_URLS` list to properly enable CORS. If you have multiple environments (dev, staging, etc.), include all of those URLs as well.
 
 ### Authentication
 

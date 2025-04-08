@@ -1,1 +1,1 @@
-web: NODE_ENV=production PORT=3000 node dist/src/main 
+web: npm run start:prod 

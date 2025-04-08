@@ -49,18 +49,8 @@ async function bootstrap() {
             }
             next();
         });
-        app.use((req, res, next) => {
-            if (req.url === "/" && req.method === "GET") {
-                console.log("Health check request received");
-                return res.status(200).send("OK");
-            }
-            next();
-        });
         if (process.env.NODE_ENV === "production") {
             app.use((req, res, next) => {
-                if (req.url === "/" && req.method === "GET") {
-                    return next();
-                }
                 if (!req.secure && req.headers["x-forwarded-proto"] !== "https") {
                     const httpsUrl = `https://${req.headers.host}${req.url}`;
                     return res.redirect(301, httpsUrl);
@@ -78,45 +68,24 @@ async function bootstrap() {
         const frontendAltUrl = "http://127.0.0.1:3000";
         const frontendAltDevUrl = "http://127.0.0.1:3001";
         const adminUrl = process.env.ADMIN_URL || "http://localhost:3005";
-        const vercelFrontendUrl = "https://undr-frontend.vercel.app";
-        const vercelDevFrontendUrl = "https://undr-frontend-dev.vercel.app";
-        const railwayUrl = "https://undr-api-production.up.railway.app";
+        const vercelFrontendUrl = process.env.VERCEL_FRONTEND_URL || "https://vercel.com";
+        const vercelDevFrontendUrl = process.env.VERCEL_DEV_FRONTEND_URL || "http://localhost:3001";
+        const railwayUrl = process.env.RAILWAY_URL || "https://railway.app";
         const productionUrls = process.env.PRODUCTION_URLS
             ? process.env.PRODUCTION_URLS.split(",")
             : [];
-        console.log("Setting up CORS with the following origins:");
-        [
-            frontendUrl,
-            frontendDevUrl,
-            frontendAltUrl,
-            frontendAltDevUrl,
-            adminUrl,
-            vercelFrontendUrl,
-            vercelDevFrontendUrl,
-            railwayUrl,
-            ...productionUrls,
-        ].forEach((url) => console.log(`- ${url}`));
         app.enableCors({
-            origin: (origin, callback) => {
-                const allowedOrigins = [
-                    frontendUrl,
-                    frontendDevUrl,
-                    frontendAltUrl,
-                    frontendAltDevUrl,
-                    adminUrl,
-                    vercelFrontendUrl,
-                    vercelDevFrontendUrl,
-                    railwayUrl,
-                    ...productionUrls,
-                ];
-                if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-                    callback(null, true);
-                }
-                else {
-                    console.warn(`CORS blocked request from origin: ${origin}`);
-                    callback(null, false);
-                }
-            },
+            origin: [
+                frontendUrl,
+                frontendDevUrl,
+                frontendAltUrl,
+                frontendAltDevUrl,
+                adminUrl,
+                vercelFrontendUrl,
+                vercelDevFrontendUrl,
+                railwayUrl,
+                ...productionUrls,
+            ],
             methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
             credentials: true,
             allowedHeaders: ["Content-Type", "Authorization", "stripe-signature"],
@@ -124,7 +93,7 @@ async function bootstrap() {
             preflightContinue: false,
             optionsSuccessStatus: 204,
         });
-        console.log("CORS configuration complete");
+        console.log(`CORS enabled for origins: ${frontendUrl}, ${frontendDevUrl}, ${frontendAltUrl}, ${frontendAltDevUrl}, ${adminUrl}, ${vercelFrontendUrl}, ${vercelDevFrontendUrl}, ${railwayUrl}, ${productionUrls.join(", ")}`);
         app.use((req, res, next) => {
             if (req.url === "/" && req.method === "GET") {
                 return next();
@@ -134,6 +103,31 @@ async function bootstrap() {
             res.setHeader("X-XSS-Protection", "1; mode=block");
             res.setHeader("X-Frame-Options", "DENY");
             res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+            const frontendDomains = [
+                frontendUrl,
+                frontendDevUrl,
+                frontendAltUrl,
+                frontendAltDevUrl,
+                adminUrl,
+                vercelFrontendUrl,
+                vercelDevFrontendUrl,
+                railwayUrl,
+                ...productionUrls,
+            ]
+                .filter((url) => url)
+                .map((url) => {
+                try {
+                    const domain = new URL(url).origin;
+                    return domain;
+                }
+                catch (e) {
+                    console.warn(`Invalid URL in CSP config: ${url}`);
+                    return null;
+                }
+            })
+                .filter(Boolean)
+                .join(" ");
+            res.setHeader("Content-Security-Policy", `default-src 'self'; connect-src 'self' ${frontendDomains}; font-src 'self' data:; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none';`);
             next();
         });
         const config = new swagger_1.DocumentBuilder()
@@ -145,8 +139,7 @@ async function bootstrap() {
         const document = swagger_1.SwaggerModule.createDocument(app, config);
         swagger_1.SwaggerModule.setup("api", app, document);
         const port = process.env.PORT || 3001;
-        console.log(`Starting server on port ${port}...`);
-        await app.listen(port, "0.0.0.0");
+        await app.listen(port);
         console.log(`Application is running on: ${await app.getUrl()}`);
     }
     catch (error) {

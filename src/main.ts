@@ -38,7 +38,10 @@ async function bootstrap() {
       );
     }
 
-    // Create the NestJS application
+    // Remove direct migrations in bootstrap function
+    // This should be handled by a separate command/process in production
+    // See: migration:run script in package.json
+
     const app = await NestFactory.create(AppModule, {
       bodyParser: false, // Disable built-in bodyParser for custom handling
     });
@@ -71,26 +74,10 @@ async function bootstrap() {
       next();
     });
 
-    // Add a special middleware for health checks that will bypass other middleware
-    // This ensures Railway can always reach the healthcheck endpoint
-    app.use((req, res, next) => {
-      // Simple health check endpoint for Railway
-      if (req.url === "/" && req.method === "GET") {
-        console.log("Health check request received");
-        return res.status(200).send("OK");
-      }
-      next();
-    });
-
     // Enforce HTTPS in production
     // This middleware will redirect all HTTP requests to HTTPS
     if (process.env.NODE_ENV === "production") {
       app.use((req, res, next) => {
-        // Skip HTTPS redirect for health checks
-        if (req.url === "/" && req.method === "GET") {
-          return next();
-        }
-
         // Check for HTTP protocol
         if (!req.secure && req.headers["x-forwarded-proto"] !== "https") {
           // Redirect to HTTPS with 301 status (permanent redirect)
@@ -116,55 +103,29 @@ async function bootstrap() {
     const frontendAltUrl = "http://127.0.0.1:3000"; // Sometimes used by browsers
     const frontendAltDevUrl = "http://127.0.0.1:3001"; // Sometimes used by browsers
     const adminUrl = process.env.ADMIN_URL || "http://localhost:3005";
-
-    // Add Vercel domains for the frontend
-    const vercelFrontendUrl = "https://undr-frontend.vercel.app";
-    const vercelDevFrontendUrl = "https://undr-frontend-dev.vercel.app";
-
-    // Railway production URL
-    const railwayUrl = "https://undr-api-production.up.railway.app";
+    const vercelFrontendUrl =
+      process.env.VERCEL_FRONTEND_URL || "https://vercel.com";
+    const vercelDevFrontendUrl =
+      process.env.VERCEL_DEV_FRONTEND_URL || "http://localhost:3001";
+    const railwayUrl = process.env.RAILWAY_URL || "https://railway.app";
 
     // For Railway deployment - add production URLs to CORS whitelist
     const productionUrls = process.env.PRODUCTION_URLS
       ? process.env.PRODUCTION_URLS.split(",")
       : [];
 
-    // Log CORS origins for debugging
-    console.log("Setting up CORS with the following origins:");
-    [
-      frontendUrl,
-      frontendDevUrl,
-      frontendAltUrl,
-      frontendAltDevUrl,
-      adminUrl,
-      vercelFrontendUrl,
-      vercelDevFrontendUrl,
-      railwayUrl,
-      ...productionUrls,
-    ].forEach((url) => console.log(`- ${url}`));
-
     app.enableCors({
-      origin: (origin, callback) => {
-        const allowedOrigins = [
-          frontendUrl,
-          frontendDevUrl,
-          frontendAltUrl,
-          frontendAltDevUrl,
-          adminUrl,
-          vercelFrontendUrl,
-          vercelDevFrontendUrl,
-          railwayUrl,
-          ...productionUrls,
-        ];
-
-        // Allow requests with no origin (like mobile apps, curl requests)
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-          callback(null, true);
-        } else {
-          console.warn(`CORS blocked request from origin: ${origin}`);
-          callback(null, false);
-        }
-      },
+      origin: [
+        frontendUrl,
+        frontendDevUrl,
+        frontendAltUrl,
+        frontendAltDevUrl,
+        adminUrl,
+        vercelFrontendUrl,
+        vercelDevFrontendUrl,
+        railwayUrl,
+        ...productionUrls,
+      ],
       methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization", "stripe-signature"],
@@ -173,7 +134,11 @@ async function bootstrap() {
       optionsSuccessStatus: 204,
     });
 
-    console.log("CORS configuration complete");
+    console.log(
+      `CORS enabled for origins: ${frontendUrl}, ${frontendDevUrl}, ${frontendAltUrl}, ${frontendAltDevUrl}, ${adminUrl}, ${vercelFrontendUrl}, ${vercelDevFrontendUrl}, ${railwayUrl}, ${productionUrls.join(
+        ", "
+      )}`
+    );
 
     // Set security headers for all responses
     app.use((req, res, next) => {
@@ -195,6 +160,39 @@ async function bootstrap() {
       res.setHeader("X-Frame-Options", "DENY");
       // Referrer policy
       res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+      // Add Content-Security-Policy header that allows connections from all frontend domains
+      const frontendDomains = [
+        frontendUrl,
+        frontendDevUrl,
+        frontendAltUrl,
+        frontendAltDevUrl,
+        adminUrl,
+        vercelFrontendUrl,
+        vercelDevFrontendUrl,
+        railwayUrl,
+        ...productionUrls,
+      ]
+        .filter((url) => url)
+        .map((url) => {
+          try {
+            // Extract domain from URL
+            const domain = new URL(url).origin;
+            return domain;
+          } catch (e) {
+            console.warn(`Invalid URL in CSP config: ${url}`);
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .join(" ");
+
+      // Set a permissive CSP header for API services
+      res.setHeader(
+        "Content-Security-Policy",
+        `default-src 'self'; connect-src 'self' ${frontendDomains}; font-src 'self' data:; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none';`
+      );
+
       next();
     });
 
@@ -210,8 +208,7 @@ async function bootstrap() {
 
     // Start the application
     const port = process.env.PORT || 3001;
-    console.log(`Starting server on port ${port}...`);
-    await app.listen(port, "0.0.0.0");
+    await app.listen(port);
     console.log(`Application is running on: ${await app.getUrl()}`);
   } catch (error) {
     console.error("Application bootstrap error:", error);
